@@ -17,8 +17,8 @@ several files (both compressed and uncompressed) and found to give
 correct results.
 
 This package also contains a simple columnar data container called a
-_Series_.  Both the SAS reader and Stata reader return the data as an
-array of Series objects.  These can in turn be converted to other
+`Series`.  Both the SAS reader and Stata reader return the data as an
+array of `Series` objects.  These can in turn be converted to other
 formats as needed.
 
 Both the Stata and SAS reader support streaming access to the data
@@ -36,7 +36,7 @@ import (
 
 f := os.Open("filename.sas7bdat")
 
-sas, err := NewSAS7BDATReader(r)
+sas, err := NewSAS7BDATReader(f)
 if err != nil {
         panic(err)
 }
@@ -51,7 +51,7 @@ if err != nil {
 __Notes__
 
 In the SAS reader, dates are not converted to Go date or time formats.
-Instead, a `float641 is returned, whose meaning depends on the
+Instead, a `float64` is returned, whose meaning depends on the
 underlying SAS date/time format.  For example, it may represent the
 number of days since January 1, 1960.
 
