@@ -318,6 +318,8 @@ func (ser *Series) UpcastNumeric() {
 		// do nothing
 	case []string:
 		// do nothing
+	case []time.Time:
+		// do nothing
 	case []float32:
 		d := ser.data.([]float32)
 		n := len(d)
@@ -336,6 +338,14 @@ func (ser *Series) UpcastNumeric() {
 		ser.data = a
 	case []int32:
 		d := ser.data.([]int32)
+		n := len(d)
+		a := make([]float64, n)
+		for i := 0; i < n; i++ {
+			a[i] = float64(d[i])
+		}
+		ser.data = a
+	case []int16:
+		d := ser.data.([]int16)
 		n := len(d)
 		a := make([]float64, n)
 		for i := 0; i < n; i++ {

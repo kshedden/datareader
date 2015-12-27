@@ -21,7 +21,7 @@ import (
 // SAS7BDAT represents a SAS data file in SAS7BDAT format.
 type SAS7BDAT struct {
 	// Data types of the columns
-	ColumnTypes []int
+	column_types []int
 
 	// Formats for the columns
 	ColumnFormats []string
@@ -723,7 +723,7 @@ func (sas *SAS7BDAT) Read(num_rows int) ([]*Series, error) {
 		sas.bytechunk = make([][]byte, sas.properties.column_count)
 		sas.stringchunk = make([][]string, sas.properties.column_count)
 		for j := 0; j < sas.properties.column_count; j++ {
-			switch sas.ColumnTypes[j] {
+			switch sas.column_types[j] {
 			default:
 				return nil, errors.New("unknown column type")
 			case number_column_type:
@@ -759,7 +759,7 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 		name := sas.column_names[j]
 		miss := make([]bool, n)
 
-		switch sas.ColumnTypes[j] {
+		switch sas.column_types[j] {
 		default:
 			panic("Unknown column type")
 		case number_column_type:
@@ -1467,9 +1467,9 @@ func (sas *SAS7BDAT) process_columnattributes_subheader(offset, length int) erro
 			return err
 		}
 		if x == 1 {
-			sas.ColumnTypes = append(sas.ColumnTypes, number_column_type)
+			sas.column_types = append(sas.column_types, number_column_type)
 		} else {
-			sas.ColumnTypes = append(sas.ColumnTypes, string_column_type)
+			sas.column_types = append(sas.column_types, string_column_type)
 		}
 	}
 
@@ -1508,7 +1508,7 @@ func (sas *SAS7BDAT) process_format_subheader(offset, length int) error {
 		sas.column_names[current_column_number],
 		column_label,
 		column_format,
-		sas.ColumnTypes[current_column_number],
+		sas.column_types[current_column_number],
 		sas.column_data_lengths[current_column_number]}
 
 	sas.ColumnFormats = append(sas.ColumnFormats, column_format)
@@ -1519,6 +1519,10 @@ func (sas *SAS7BDAT) process_format_subheader(offset, length int) error {
 
 func (sas *SAS7BDAT) ColumnNames() []string {
 	return sas.column_names
+}
+
+func (sas *SAS7BDAT) ColumnTypes() []int {
+	return sas.column_types
 }
 
 func (sas *SAS7BDAT) parse_metadata() error {

@@ -54,7 +54,7 @@ type StataReader struct {
 	RowCount int
 
 	// Variable types, see technical documentation for meaning
-	VarTypes []uint16
+	var_types []int
 
 	// A name for each variable
 	column_names []string
@@ -120,6 +120,10 @@ func NewStataReader(r io.ReadSeeker) (*StataReader, error) {
 
 func (rdr *StataReader) ColumnNames() []string {
 	return rdr.column_names
+}
+
+func (rdr *StataReader) ColumnTypes() []int {
+	return rdr.var_types
 }
 
 func (rdr *StataReader) init() error {
@@ -386,18 +390,16 @@ func (rdr *StataReader) read_vartypes() {
 
 func (rdr *StataReader) read_vartypes_16() {
 	rdr.reader.Seek(rdr.seek_vartypes+16, 0)
-	rdr.VarTypes = make([]uint16, rdr.Nvar)
+	rdr.var_types = make([]int, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
-		binary.Read(rdr.reader, rdr.ByteOrder, &rdr.VarTypes[k])
+		rdr.var_types[k] = rdr.read_uint(2)
 	}
 }
 
 func (rdr *StataReader) read_vartypes_8() {
-	rdr.VarTypes = make([]uint16, rdr.Nvar)
-	b := make([]byte, 1)
+	rdr.var_types = make([]int, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
-		binary.Read(rdr.reader, rdr.ByteOrder, &b)
-		rdr.VarTypes[k] = uint16(b[0])
+		rdr.var_types[k] = rdr.read_uint(1)
 	}
 }
 
@@ -405,18 +407,18 @@ func (rdr *StataReader) translate_vartypes() {
 	for k := 0; k < int(rdr.Nvar); k++ {
 		switch {
 		// strf
-		case rdr.VarTypes[k] <= 244:
+		case rdr.var_types[k] <= 244:
 			continue
-		case rdr.VarTypes[k] == 251:
-			rdr.VarTypes[k] = 65530
-		case rdr.VarTypes[k] == 252:
-			rdr.VarTypes[k] = 65529
-		case rdr.VarTypes[k] == 253:
-			rdr.VarTypes[k] = 65528
-		case rdr.VarTypes[k] == 254:
-			rdr.VarTypes[k] = 65527
-		case rdr.VarTypes[k] == 255:
-			rdr.VarTypes[k] = 65526
+		case rdr.var_types[k] == 251:
+			rdr.var_types[k] = 65530
+		case rdr.var_types[k] == 252:
+			rdr.var_types[k] = 65529
+		case rdr.var_types[k] == 253:
+			rdr.var_types[k] = 65528
+		case rdr.var_types[k] == 254:
+			rdr.var_types[k] = 65527
+		case rdr.var_types[k] == 255:
+			rdr.var_types[k] = 65526
 		default:
 			panic("unknown variable type %v in translate_vartypes")
 		}
@@ -667,7 +669,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 		missing[j] = make([]bool, nval)
 	}
 
-	for j, t := range rdr.VarTypes {
+	for j, t := range rdr.var_types {
 		switch {
 		case t <= 2045:
 			data[j] = make([]string, nval)
@@ -708,7 +710,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 
 		for j := 0; j < rdr.Nvar; j++ {
 
-			t := rdr.VarTypes[j]
+			t := rdr.var_types[j]
 			switch {
 			case t <= 2045:
 				// strf

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/kshedden/datareader"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,6 +54,12 @@ func do_split(rdr statfilereader, col_dir string, mode string) {
 		if chunk == nil {
 			return
 		}
+
+		missing := make([][]bool, ncol)
+		for j := 0; j < ncol; j++ {
+			missing[j] = chunk[j].Missing()
+		}
+
 		for j := 0; j < len(chunk); j++ {
 			chunk[j].UpcastNumeric()
 		}
@@ -63,14 +70,22 @@ func do_split(rdr statfilereader, col_dir string, mode string) {
 			case []float64:
 				if mode == "binary" {
 					buf := new(bytes.Buffer)
-					for _, x := range ds.([]float64) {
-						binary.Write(buf, binary.LittleEndian, x)
+					for i, x := range ds.([]float64) {
+						if (missing[j] == nil) || (missing[j][i] == false) {
+							binary.Write(buf, binary.LittleEndian, x)
+						} else {
+							binary.Write(buf, binary.LittleEndian, math.NaN())
+						}
 					}
 					columns[j].Write(buf.Bytes())
 				} else {
 					vec := ds.([]float64)
-					for _, x := range vec {
-						columns[j].Write([]byte(fmt.Sprintf("%v\n", x)))
+					for i, x := range vec {
+						if (missing[j] == nil) || (missing[j][i] == false) {
+							columns[j].Write([]byte(fmt.Sprintf("%v\n", x)))
+						} else {
+							columns[j].Write([]byte("\n"))
+						}
 					}
 				}
 			case []string:
