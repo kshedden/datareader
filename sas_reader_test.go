@@ -3,35 +3,47 @@ package datareader
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 )
 
-func base_test(fname_csv, fname_sas string) bool {
+func sas_base_test(fname_csv, fname_sas string) bool {
 
-	f, err := os.Open("sas_files/" + fname_csv)
+	f, err := os.Open(filepath.Join("test_files", fname_csv))
 	if err != nil {
-		panic(err)
+		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
+		return false
 	}
+
 	rt := NewCSVReader(f)
 	rt.HasHeader = false
-	dt := rt.Read(-1)
-
-	r, err := os.Open("sas_files/" + fname_sas)
+	dt, err := rt.Read(-1)
 	if err != nil {
-		panic(err)
+		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
+		return false
 	}
+
+	r, err := os.Open(filepath.Join("test_files", fname_sas))
+	if err != nil {
+		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
+		return false
+	}
+
 	sas, err := NewSAS7BDATReader(r)
 	if err != nil {
-		panic(err)
+		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
+		return false
 	}
+	sas.TrimStrings = true
 
-	ncol := len(sas.ColumnNames)
+	ncol := len(sas.ColumnNames())
 
 	ds, err := sas.Read(10000)
 	if err != nil {
-		panic(err)
+		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
+		return false
 	}
 
 	if len(ds) != len(dt) {
@@ -43,9 +55,14 @@ func base_test(fname_csv, fname_sas string) bool {
 	for j := 0; j < ncol; j++ {
 		switch sas.ColumnFormats[j] {
 		default:
-			fmt.Printf("unknown format for column %d: %s\n", j, sas.ColumnFormats[j])
+			os.Stderr.WriteString(fmt.Sprintf("unknown format for column %d: %s\n", j, sas.ColumnFormats[j]))
 		case "":
 			if !ds[j].AllEqual(dt[j]) {
+				a := ds[j].Data().([]string)
+				b := dt[j].Data().([]string)
+				for i := 0; i < ds[j].Length(); i++ {
+					fmt.Printf("%v %v %v %v\n", a[i], b[i], len(a[i]), len(b[i]))
+				}
 				return false
 			}
 		case "MMDDYY":
@@ -71,16 +88,15 @@ func base_test(fname_csv, fname_sas string) bool {
 
 func TestSAS1(t *testing.T) {
 
-	r := base_test("test1.csv", "test1_compression_no.sas7bdat")
+	r := sas_base_test("test1.csv", "test1_compression_no.sas7bdat")
 	if !r {
 		t.Fail()
 	}
 }
 
-/*
 func TestSAS2(t *testing.T) {
 
-	r := base_test("test1.csv", "test1_compression_char.sas7bdat")
+	r := sas_base_test("test1.csv", "test1_compression_char.sas7bdat")
 	if !r {
 		t.Fail()
 	}
@@ -88,9 +104,8 @@ func TestSAS2(t *testing.T) {
 
 func TestSAS3(t *testing.T) {
 
-	r := base_test("test1.csv", "test1_compression_binary.sas7bdat")
+	r := sas_base_test("test1.csv", "test1_compression_binary.sas7bdat")
 	if !r {
 		t.Fail()
 	}
 }
-*/

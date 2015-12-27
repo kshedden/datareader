@@ -4,6 +4,7 @@ package datareader
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -43,25 +44,32 @@ func NewCSVReader(r io.ReadSeeker) *CSVReader {
 	return rdr
 }
 
-func (rdr *CSVReader) get_column_names() {
+func (rdr *CSVReader) get_column_names() error {
 
 	(*rdr.reader).Seek(0, 0)
 	c := csv.NewReader((*rdr.reader).(io.Reader))
 
 	// Skip rows as requested.
 	for k := 0; k < rdr.SkipRows; k++ {
-		c.Read()
+		_, err := c.Read()
+		if err == io.EOF {
+			return errors.New(fmt.Sprintf("SkipRows=%d is greater than the file length\n", rdr.SkipRows))
+		} else if err != nil {
+			return err
+		}
 	}
 
 	// The next line determines the number of columns, even if it is not the header.
 	line, err := c.Read()
-	if err != nil {
-		fmt.Printf("Unable to read column names: %v", err)
+	if err == io.EOF {
+		return errors.New("Reached end of file before finding data\n")
+	} else if err != nil {
+		return err
 	}
 
 	if rdr.HasHeader {
 		rdr.ColumnNames = line
-		return
+		return nil
 	}
 
 	// Default names
@@ -69,11 +77,16 @@ func (rdr *CSVReader) get_column_names() {
 	for k := 0; k < len(line); k++ {
 		rdr.ColumnNames[k] = fmt.Sprintf("Column %d", k+1)
 	}
+
+	return nil
 }
 
-func (rdr *CSVReader) sniff_types() {
+func (rdr *CSVReader) sniff_types() error {
 
-	c := rdr.seek_data()
+	c, err := rdr.seek_data()
+	if err != nil {
+		return err
+	}
 
 	// Read up to 100 lines
 	data := make([][]string, 0, 100)
@@ -112,42 +125,58 @@ func (rdr *CSVReader) sniff_types() {
 			}
 		}
 	}
+
+	return nil
 }
 
 // seek_data moves the io.reader to the beginning of the first row of
 // data and returns a csv.Reader for reading the data.
-func (rdr *CSVReader) seek_data() *csv.Reader {
+func (rdr *CSVReader) seek_data() (*csv.Reader, error) {
 
 	(*rdr.reader).Seek(0, 0)
 	c := csv.NewReader(*rdr.reader)
 
 	// Skip rows as requested.
 	for k := 0; k < rdr.SkipRows; k++ {
-		c.Read()
+		_, err := c.Read()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if rdr.HasHeader {
-		c.Read()
+		_, err := c.Read()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return c
+	return c, nil
 }
 
 // init performs some initializations before reading data.
-func (rdr *CSVReader) init() {
+func (rdr *CSVReader) init() error {
 
 	if rdr.ColumnNames == nil {
-		rdr.get_column_names()
+		err := rdr.get_column_names()
+		if err != nil {
+			return err
+		}
 	}
 
 	if rdr.data_types == nil {
-		rdr.sniff_types()
+		err := rdr.sniff_types()
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 // Read reads up to the given number of lines of data and returns the
 // results.  If lines is negative the whole file is read.
-func (rdr *CSVReader) Read(lines int) []*Series {
+func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 
 	rdr.init()
 
@@ -164,7 +193,11 @@ func (rdr *CSVReader) Read(lines int) []*Series {
 	}
 
 	rdr.init()
-	c := rdr.seek_data()
+	c, err := rdr.seek_data()
+	if err != nil {
+		return nil, err
+	}
+
 	dlines, _ := c.ReadAll()
 
 	num_read := 0
@@ -197,7 +230,7 @@ func (rdr *CSVReader) Read(lines int) []*Series {
 			panic(fmt.Sprintf("%v", err))
 		}
 	}
-	return data_series
+	return data_series, nil
 }
 
 // count_floats returns the number of elements of each column of array

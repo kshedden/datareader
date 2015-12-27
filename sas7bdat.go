@@ -20,9 +20,6 @@ import (
 
 // SAS7BDAT represents a SAS data file in SAS7BDAT format.
 type SAS7BDAT struct {
-	// Names of the columns
-	ColumnNames []string
-
 	// Data types of the columns
 	ColumnTypes []int
 
@@ -72,6 +69,7 @@ type SAS7BDAT struct {
 	// The compression mode of the file
 	Compression string
 
+	column_names                         []string
 	path                                 string
 	buf                                  []byte
 	align_correction                     int
@@ -576,20 +574,6 @@ func rdc_decompress(offset, length, result_length int, page []byte) []byte {
 	return out_row
 }
 
-func TrimStrings(data SeriesArray) {
-
-	for _, x := range data {
-		v := x.Data()
-		switch v.(type) {
-		case []string:
-			z := v.([]string)
-			for i, u := range z {
-				z[i] = strings.TrimRight(u, " ")
-			}
-		}
-	}
-}
-
 func (sas *SAS7BDAT) get_decompressor() func(int, int, int, []byte) []byte {
 
 	switch sas.Compression {
@@ -714,7 +698,8 @@ func (sas *SAS7BDAT) read_int(offset, width int) (int, error) {
 
 // Read returns up to num_rows rows of data from the SAS7BDAT file, as
 // an array of Series objects.  The Series data types are either
-// float64 or string.
+// float64 or string.  If num_rows is negative, the remainder of the
+// file is read.
 //
 // SAS date/time values are returned as float64 values.  The meaning
 // of these values depends on the formats, which are placed in
@@ -725,6 +710,10 @@ func (sas *SAS7BDAT) read_int(offset, width int) (int, error) {
 // whitespace is trimmed from each string, but this can be turned off
 // by setting the TrimRight field in the SAS7BDAT struct.
 func (sas *SAS7BDAT) Read(num_rows int) ([]*Series, error) {
+
+	if num_rows < 0 {
+		num_rows = sas.RowCount - sas.current_row_in_file_index
+	}
 
 	if sas.current_row_in_file_index >= sas.RowCount {
 		return nil, nil
@@ -756,7 +745,6 @@ func (sas *SAS7BDAT) Read(num_rows int) ([]*Series, error) {
 	}
 
 	rslt := sas.chunk_to_series()
-	TrimStrings(rslt)
 
 	return rslt, nil
 }
@@ -768,7 +756,7 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 
 	for j := 0; j < sas.properties.column_count; j++ {
 
-		name := sas.ColumnNames[j]
+		name := sas.column_names[j]
 		miss := make([]bool, n)
 
 		switch sas.ColumnTypes[j] {
@@ -782,7 +770,7 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 		case string_column_type:
 			if sas.TrimStrings {
 				for i := 0; i < n; i++ {
-					sas.stringchunk[j][i] = strings.TrimLeft(sas.stringchunk[j][i], " ")
+					sas.stringchunk[j][i] = strings.TrimRight(sas.stringchunk[j][i], " ")
 				}
 			}
 			rslt[j], _ = NewSeries(name, sas.stringchunk[j][0:n], miss)
@@ -1442,7 +1430,7 @@ func (sas *SAS7BDAT) process_columnname_subheader(offset, length int) error {
 		}
 
 		name_str := sas.column_names_strings[idx]
-		sas.ColumnNames = append(sas.ColumnNames, name_str[col_offset:col_offset+col_len])
+		sas.column_names = append(sas.column_names, name_str[col_offset:col_offset+col_len])
 	}
 
 	return nil
@@ -1517,7 +1505,7 @@ func (sas *SAS7BDAT) process_format_subheader(offset, length int) error {
 	current_column_number := len(sas.columns)
 
 	col := &Column{current_column_number,
-		sas.ColumnNames[current_column_number],
+		sas.column_names[current_column_number],
 		column_label,
 		column_format,
 		sas.ColumnTypes[current_column_number],
@@ -1527,6 +1515,10 @@ func (sas *SAS7BDAT) process_format_subheader(offset, length int) error {
 	sas.columns = append(sas.columns, col)
 
 	return nil
+}
+
+func (sas *SAS7BDAT) ColumnNames() []string {
+	return sas.column_names
 }
 
 func (sas *SAS7BDAT) parse_metadata() error {

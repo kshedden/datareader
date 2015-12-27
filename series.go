@@ -308,19 +308,68 @@ func (ser *Series) AllEqual(other *Series) bool {
 	return ser.AllClose(other, 0.0)
 }
 
+func (ser *Series) UpcastNumeric() {
+
+	switch ser.data.(type) {
+
+	default:
+		panic(fmt.Sprintf("unknown data type: %T\n", ser.data))
+	case []float64:
+		// do nothing
+	case []string:
+		// do nothing
+	case []float32:
+		d := ser.data.([]float32)
+		n := len(d)
+		a := make([]float64, n)
+		for i := 0; i < n; i++ {
+			a[i] = float64(d[i])
+		}
+		ser.data = a
+	case []int64:
+		d := ser.data.([]int64)
+		n := len(d)
+		a := make([]float64, n)
+		for i := 0; i < n; i++ {
+			a[i] = float64(d[i])
+		}
+		ser.data = a
+	case []int32:
+		d := ser.data.([]int32)
+		n := len(d)
+		a := make([]float64, n)
+		for i := 0; i < n; i++ {
+			a[i] = float64(d[i])
+		}
+		ser.data = a
+	case []int8:
+		d := ser.data.([]int8)
+		n := len(d)
+		a := make([]float64, n)
+		for i := 0; i < n; i++ {
+			a[i] = float64(d[i])
+		}
+		ser.data = a
+	}
+}
+
 type SeriesArray []*Series
 
-func (ser SeriesArray) AllEqual(other []*Series) bool {
+func (ser SeriesArray) AllClose(other []*Series, tol float64) bool {
 
 	if len(ser) != len(other) {
 		return false
 	}
 
 	for j := 0; j < len(ser); j++ {
-		if !ser[j].AllEqual(other[j]) {
+		if !ser[j].AllClose(other[j], tol) {
 			return false
 		}
 	}
 
 	return true
+}
+
+func (ser SeriesArray) AllEqual(other []*Series) bool {
+	return ser.AllClose(other, 0.0)
 }

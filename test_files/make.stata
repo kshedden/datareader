@@ -1,0 +1,24 @@
+clear
+
+import delimited "test1.csv"
+
+save "test1_118.dta", replace
+
+clear
+
+import delimited "test1.csv"
+
+saveold "test1_117.dta", replace
+
+clear
+
+import delimited "test1.csv"
+
+saveold "test1_115.dta", version(12) replace
+
+clear
+
+import delimited "test1.csv"
+
+saveold "test1_115b.dta", version(11) replace
+

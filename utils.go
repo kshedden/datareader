@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-// DataEqual returns true if and only if the two lists of arrays are identical.
+// ArrayListEqual returns true if and only if the two lists of arrays are identical.
 func ArrayListEqual(a, b []interface{}) bool {
 
 	if len(a) != len(b) {
