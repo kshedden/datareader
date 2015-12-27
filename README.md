@@ -49,6 +49,9 @@ if err != nil {
 
 __Notes__
 
+See the `scripts` directory for stand-alone programs that convert
+SAS7BDAT files to various text formats.
+
 In the SAS reader, dates are not converted to Go date or time formats.
 Instead, a `float64` is returned, whose meaning depends on the
 underlying SAS date/time format (which is available as the
