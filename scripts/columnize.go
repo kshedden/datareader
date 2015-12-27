@@ -1,0 +1,135 @@
+package main
+
+// columnize takes a binary SAS (SAS7BDAT) or Stata (dta) file and
+// saves the data from each column into a separate file.  Character
+// data is stored in raw format, with values separated by newline
+// characters.  Numeric data can be stored either in text or binary
+// format.  A text file containing the column names is also generated.
+
+import (
+	"bytes"
+	"encoding/binary"
+	"flag"
+	"fmt"
+	"github.com/kshedden/datareader"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+type statfilereader interface {
+	ColumnNames() []string
+	Read(int) ([]*datareader.Series, error)
+}
+
+func do_split(rdr statfilereader, col_dir string, mode string) {
+
+	ncol := len(rdr.ColumnNames())
+	columns := make([]io.Writer, ncol)
+
+	cf, err := os.Create(filepath.Join(col_dir, "columns.txt"))
+	defer cf.Close()
+	if err != nil {
+		os.Stderr.WriteString(fmt.Sprintf("unable to create file in %s: %v\n", col_dir, err))
+		return
+	}
+	for i, c := range rdr.ColumnNames() {
+		cf.WriteString(fmt.Sprintf("%d,%s\n", i+1, c))
+	}
+
+	for j, _ := range rdr.ColumnNames() {
+		fn := filepath.Join(col_dir, fmt.Sprintf("%d", j))
+		f, err := os.Create(fn)
+		defer f.Close()
+		if err != nil {
+			os.Stderr.WriteString(fmt.Sprintf("unable to create file for column %d: %v\n", j+1, err))
+		}
+		columns[j] = f
+	}
+
+	for {
+		chunk, _ := rdr.Read(10000)
+		if chunk == nil {
+			return
+		}
+		for j := 0; j < len(chunk); j++ {
+			chunk[j].UpcastNumeric()
+		}
+
+		for j := 0; j < ncol; j++ {
+			ds := chunk[j].Data()
+			switch ds.(type) {
+			case []float64:
+				if mode == "binary" {
+					buf := new(bytes.Buffer)
+					for _, x := range ds.([]float64) {
+						binary.Write(buf, binary.LittleEndian, x)
+					}
+					columns[j].Write(buf.Bytes())
+				} else {
+					vec := ds.([]float64)
+					for _, x := range vec {
+						columns[j].Write([]byte(fmt.Sprintf("%v\n", x)))
+					}
+				}
+			case []string:
+				for _, x := range ds.([]string) {
+					columns[j].Write([]byte(x))
+					columns[j].Write([]byte("\n"))
+				}
+			}
+		}
+	}
+}
+
+func main() {
+
+	if len(os.Args) != 4 {
+		os.Stderr.WriteString(fmt.Sprintf("usage: %s -input=file -output=directory -mode=mode\n", os.Args[0]))
+		return
+	}
+
+	in_file := flag.String("input", "", "A SAS7BDAT or Stata dta file name")
+	col_dir := flag.String("output", "", "A directory for writing the columns")
+	mode := flag.String("mode", "text", "Write numeric data as 'text' or 'binary'")
+
+	flag.Parse()
+
+	if (*mode != "text") && (*mode != "binary") {
+		os.Stderr.WriteString("mode must be either 'text' or 'binary'\n")
+		return
+	}
+
+	fl := strings.ToLower(*in_file)
+	filetype := ""
+	if strings.HasSuffix(fl, "sas7bdat") {
+		filetype = "sas"
+	} else if strings.HasSuffix(fl, "dta") {
+		filetype = "stata"
+	} else {
+		os.Stderr.WriteString(fmt.Sprintf("%s file cannot be read", *in_file))
+		return
+	}
+
+	r, err := os.Open(*in_file)
+	if err != nil {
+		os.Stderr.WriteString(fmt.Sprintf("unable to open %s\n", in_file))
+	}
+	var rdr statfilereader
+	if filetype == "sas" {
+		rdr, err = datareader.NewSAS7BDATReader(r)
+		if err != nil {
+			os.Stderr.WriteString(fmt.Sprintf("unable to open SAS file: %v\n", err))
+			return
+		}
+	} else if filetype == "stata" {
+		rdr, err = datareader.NewStataReader(r)
+		if err != nil {
+			os.Stderr.WriteString(fmt.Sprintf("unable to open Stata file: %v\n", err))
+			return
+		}
+	}
+
+	do_split(rdr, *col_dir, *mode)
+}

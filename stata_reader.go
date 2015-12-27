@@ -659,6 +659,8 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 	nval := int(rdr.RowCount) - rdr.rows_read
 	if (rows >= 0) && (nval > rows) {
 		nval = rows
+	} else if nval <= 0 {
+		return nil, nil
 	}
 
 	for j := 0; j < int(rdr.Nvar); j++ {

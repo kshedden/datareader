@@ -93,7 +93,7 @@ if err != nil {
 }
 ```
 
-__Notes__
+## Notes
 
 See the `scripts` directory for stand-alone programs that convert
 SAS7BDAT files to various text formats.
