@@ -26,6 +26,7 @@ needed.
 Both the Stata and SAS reader support streaming access to the data
 (i.e. reading the file by chunks of consecutive records).
 
+## SAS
 
 Here is an example of how the SAS reader can be used in a Go program:
 
@@ -37,13 +38,56 @@ import (
 
 // Create a SAS7BDAT object
 f := os.Open("filename.sas7bdat")
-sas, err := NewSAS7BDATReader(f)
+sas, err := datareader.NewSAS7BDATReader(f)
 if err != nil {
         panic(err)
 }
 
 // Read the first 10000 records
 ds, err := sas.Read(10000)
+if err != nil {
+        panic(err)
+}
+```
+
+## Stata
+
+Here is an example of how the Stata reader can be used in a Go program:
+
+```
+import (
+        "datareader"
+        "os"
+)
+
+// Create a StataReader object
+f := os.Open("filename.dta")
+stata, err := datareader.NewStataReader(f)
+if err != nil {
+        panic(err)
+}
+
+// Read the first 10000 records
+ds, err := stata.Read(10000)
+if err != nil {
+        panic(err)
+}
+```
+
+## CSV
+
+The package includes a CSV reader with a limited amount of type
+inference.
+
+```
+import (
+        "datareader"
+)
+
+f := os.Open("filename.csv")
+rt := datareader.NewCSVReader(f)
+rt.HasHeader = true
+dt, err := rt.Read(-1)
 if err != nil {
         panic(err)
 }
