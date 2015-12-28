@@ -23,8 +23,8 @@ var value_label_length = map[int]int{117: 33, 118: 129}
 
 var vo_length = map[int]int{117: 8, 118: 12}
 
-// A StataReader reads Stata dta data files.  Currently versions
-// 114-118 of Stata dta files can be read.  Not all fields in the
+// A StataReader reads Stata dta data files.  Currently versions 115,
+// 117, and 118 of Stata dta files can be read.  Not all fields in the
 // StataReader struct are applicable to all file formats.
 //
 // The Read method reads and returns the data.  Several fields of the
@@ -155,13 +155,19 @@ func (rdr *StataReader) init() error {
 		return err
 	}
 
-	rdr.read_vartypes()
+	err = rdr.read_vartypes()
+	if err != nil {
+		return err
+	}
 
 	if rdr.FormatVersion < 117 {
 		rdr.translate_vartypes()
 	}
 
-	rdr.read_varnames()
+	err = rdr.read_varnames()
+	if err != nil {
+		return err
+	}
 
 	// Skip over srtlist
 	if rdr.FormatVersion < 117 {
@@ -174,7 +180,10 @@ func (rdr *StataReader) init() error {
 	rdr.read_variable_labels()
 
 	if rdr.FormatVersion < 117 {
-		rdr.read_expansion_fields()
+		err = rdr.read_expansion_fields()
+		if err != nil {
+			return err
+		}
 	}
 
 	if rdr.FormatVersion >= 117 {
@@ -187,19 +196,27 @@ func (rdr *StataReader) init() error {
 	return nil
 }
 
-func (rdr *StataReader) read_expansion_fields() {
+func (rdr *StataReader) read_expansion_fields() error {
 	var b byte
 	var i int32
 
 	for {
-		binary.Read(rdr.reader, rdr.ByteOrder, &b)
-		binary.Read(rdr.reader, rdr.ByteOrder, &i)
+		err := binary.Read(rdr.reader, rdr.ByteOrder, &b)
+		if err != nil {
+			return err
+		}
+		err = binary.Read(rdr.reader, rdr.ByteOrder, &i)
+		if err != nil {
+			return err
+		}
 
 		if (b == 0) && (i == 0) {
 			break
 		}
 		rdr.reader.Seek(int64(i), 1)
 	}
+
+	return nil
 }
 
 func (rdr *StataReader) read_int(width int) (int, error) {
@@ -319,11 +336,23 @@ func (rdr *StataReader) read_old_header() error {
 	}
 
 	// Data label
-	rdr.reader.Read(buf[0:81])
+	n, err := rdr.reader.Read(buf[0:81])
+	if err != nil {
+		return err
+	}
+	if n != 81 {
+		return errors.New("stata file appears to be truncated")
+	}
 	rdr.DatasetLabel = string(partition(buf[0:81]))
 
 	// Time stamp
-	rdr.reader.Read(buf[0:18])
+	n, err = rdr.reader.Read(buf[0:18])
+	if err != nil {
+		return err
+	}
+	if n != 18 {
+		return errors.New("stata file appears to be truncated")
+	}
 	rdr.TimeStamp = string(partition(buf[0:18]))
 
 	return nil
@@ -566,31 +595,41 @@ func partition(b []byte) []byte {
 
 // read_varnames dispatches to the correct function for reading
 // variable names for the dta file format.
-func (rdr *StataReader) read_varnames() {
+func (rdr *StataReader) read_varnames() error {
+	var err error
 	switch {
 	case rdr.FormatVersion == 118:
-		rdr.do_read_varnames(129, true)
+		err = rdr.do_read_varnames(129, true)
 	case rdr.FormatVersion == 117:
-		rdr.do_read_varnames(33, true)
+		err = rdr.do_read_varnames(33, true)
 	case rdr.FormatVersion == 115:
-		rdr.do_read_varnames(33, false)
+		err = rdr.do_read_varnames(33, false)
 	case rdr.FormatVersion == 114:
-		rdr.do_read_varnames(33, false)
+		err = rdr.do_read_varnames(33, false)
 	default:
-		panic(fmt.Sprintf("unknown format version %v in read_varnames", rdr.FormatVersion))
+		return errors.New(fmt.Sprintf("unknown format version %v in read_varnames", rdr.FormatVersion))
 	}
+	return err
 }
 
-func (rdr *StataReader) do_read_varnames(bufsize int, seek bool) {
+func (rdr *StataReader) do_read_varnames(bufsize int, seek bool) error {
 	buf := make([]byte, bufsize)
 	if seek {
 		rdr.reader.Seek(rdr.seek_varnames+10, 0)
 	}
 	rdr.column_names = make([]string, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
-		rdr.reader.Read(buf)
+		n, err := rdr.reader.Read(buf)
+		if err != nil {
+			return err
+		}
+		if n != bufsize {
+			return errors.New("stata file appears to be truncated")
+		}
 		rdr.column_names[k] = string(partition(buf))
 	}
+
+	return nil
 }
 
 func (rdr *StataReader) read_value_label_names() {
