@@ -1,0 +1,10 @@
+VO: [3 0 0 0 1 0 0 0]
+ptr=4294967299
+VO: [3 0 0 0 2 0 0 0]
+ptr=8589934595
+VO: [3 0 0 0 3 0 0 0]
+ptr=12884901891
+x,y,z
+1,abc,abcdefghi
+3,cba,qwertywertyqwerty
+93,,strl

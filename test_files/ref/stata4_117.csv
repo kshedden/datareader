@@ -1,0 +1,11 @@
+fully_labeled,fully_labeled2,incompletely_labeled,labeled_with_missings,float_labelled
+one,ten,one,one,one
+two,nine,two,two,two
+three,eight,three,three,three
+four,seven,4,four,four
+five,six,5,,five
+six,five,6,,six
+seven,four,7,,seven
+eight,three,8,,eight
+nine,two,9,,nine
+ten,one,ten,,ten

@@ -1,0 +1,6 @@
+ordered,reverse,noorder,floating,float_missing,nolabel,int32_mixed
+a,e,c,a,a,1,d
+b,d,b,b,d,2,2
+c,c,e,c,e,3,e
+d,b,a,d,,4,b
+e,a,d,e,,5,a

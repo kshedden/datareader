@@ -1,0 +1,6 @@
+byte_,int_,long_,float_,double_,date_td,string_,string_1
+0,0,0,0,0,1960-01-01 00:00:00 +0000 UTC,a,a
+1,1,1,1,1,1845-11-21 00:50:52.580896768 +0000 UTC,ab,b
+-1,-1,-1,-1,-1,2014-12-31 00:00:00 +0000 UTC,abc,c
+100,32740,-2.147483647e+09,-1.7010000002776902e+38,-2e+307,1970-01-01 00:00:00 +0000 UTC,"This string has 244 characters, so that ir is the maximum length permitted by Stata. This string has 244 characters, so that ir is the maximum length permitted by Stata. This string has 244 characters, so that ir is the maximum length permitted",d
+-127,-32767,2.14748362e+09,1.7010000002776902e+38,8e+307,1970-01-02 00:00:00 +0000 UTC,abcdefghijklmnopqrstuvwxyz,e

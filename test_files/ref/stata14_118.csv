@@ -1,0 +1,16 @@
+VO: [3 0 1 0 0 0 0 0]
+ptr=65539
+VO: [3 0 2 0 0 0 0 0]
+ptr=131075
+VO: [3 0 3 0 0 0 0 0]
+ptr=196611
+VO: [3 0 4 0 0 0 0 0]
+ptr=262147
+VO: [0 0 0 0 0 0 0 0]
+ptr=0
+Things,Cities,Unicode_Cities_Strl,Ints,Floats,Bytes,Longs
+Cat,Bogota,Bogotá,1,1,option b Ünicode,1
+Dog,Boston,Uzunköprü,,,,
+Plane,Rome,Tromsø,0,0,option a,0
+Potato,Tokyo,Elâzığ,-4,4,4,4
+,,,0,0.33329999446868896,option a,0.3333333333333333
