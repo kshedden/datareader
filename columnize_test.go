@@ -14,24 +14,24 @@ import (
 	"testing"
 )
 
-var all_files = []string{"test1_115.dta", "test1_115b.dta", "test1_117.dta", "test1_118.dta",
+var all_test_files = []string{"test1_115.dta", "test1_115b.dta", "test1_117.dta", "test1_118.dta",
 	"test1_compression_no.sas7bdat", "test1_compression_binary.sas7bdat",
 	"test1_compression_char.sas7bdat"}
 
 const (
-	generate = false
+	generate_columnize = false
 )
 
 // Not really a test function, used to generate md5 sums for the results.
-func TestGenerate(t *testing.T) {
+func Test_generate_columnize(t *testing.T) {
 
-	if !generate {
+	if !generate_columnize {
 		return
 	}
 
 	ms := make(map[string][16]byte)
 
-	for _, f := range all_files {
+	for _, f := range all_test_files {
 		for _, mode := range []string{"text", "binary"} {
 			m := columnize_base(f, mode)
 			k := f + "::" + mode
@@ -96,9 +96,9 @@ func columnize_base(fname, mode string) [16]byte {
 	return m
 }
 
-func Test1(t *testing.T) {
+func Test_columnize_1(t *testing.T) {
 
-	if generate {
+	if generate_columnize {
 		return
 	}
 
@@ -114,7 +114,7 @@ func Test1(t *testing.T) {
 	}
 	json.Unmarshal(b, &checksum)
 
-	for _, f := range all_files {
+	for _, f := range all_test_files {
 		for _, mode := range []string{"text", "binary"} {
 
 			m := columnize_base(f, mode)

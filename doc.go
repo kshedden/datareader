@@ -12,8 +12,9 @@ is based on previous efforts to reverse-engineer the format.
 
 Package datareader also includes a simple column-oriented data
 container called a Series, and a function that reads CSV files, infers
-the datatype of each column, and places it into a Series object.  The
-SAS and Stata readers return the data as an array of Series objects.
+the datatype of each column, and places them into an array of Series
+objects.  The SAS and Stata readers return the data as an array of
+Series objects.
 
 The SAS and Stata objects behave similarly, and both satisfy the
 Statfilereader interface.  Both readers can read a file by chunks
