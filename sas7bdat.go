@@ -46,19 +46,19 @@ type SAS7BDAT struct {
 	Platform string
 
 	// The SAS release used to create the file
-	SAS_release string
+	SASRelease string
 
 	// The server type used to create the file
-	Server_type string
+	ServerType string
 
 	// The operating system type used to create the file
-	OS_type string
+	OSType string
 
 	// The operating system name used to create the file
-	OS_name string
+	OSName string
 
 	// The SAS file type
-	File_type string
+	FileType string
 
 	// True if the file was created on a 64 bit architecture
 	U64 bool
@@ -973,7 +973,7 @@ func (sas *SAS7BDAT) setProperties() error {
 	if err != nil {
 		return err
 	}
-	sas.File_type = string(sas.buf[0:file_type_length])
+	sas.FileType = string(sas.buf[0:file_type_length])
 
 	// Timestamp is epoch 01/01/1960
 	epoch := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -1012,32 +1012,32 @@ func (sas *SAS7BDAT) setProperties() error {
 	if err != nil {
 		return errors.New("Unable to read SAS relase value.")
 	}
-	sas.SAS_release = string(sas.buf[0:sas_release_length])
+	sas.SASRelease = string(sas.buf[0:sas_release_length])
 
 	err = sas.read_bytes(sas_server_type_offset+total_align, sas_server_type_length)
 	if err != nil {
 		return errors.New("Unable to read SAS server type value.")
 	}
-	sas.Server_type = string(sas.buf[0:sas_server_type_length])
+	sas.ServerType = string(sas.buf[0:sas_server_type_length])
 
 	err = sas.read_bytes(os_version_number_offset+total_align, os_version_number_length)
 	if err != nil {
 		return errors.New("Unable to read version number.")
 	}
-	sas.OS_type = string(sas.buf[0:os_version_number_length])
+	sas.OSType = string(sas.buf[0:os_version_number_length])
 
 	err = sas.read_bytes(os_name_offset+total_align, os_name_length)
 	if err != nil {
 		return errors.New("Unable to read OS name.")
 	}
 	if sas.buf[0] != 0 {
-		sas.OS_name = string(sas.buf[0:os_name_length])
+		sas.OSName = string(sas.buf[0:os_name_length])
 	} else {
 		err = sas.read_bytes(os_maker_offset+total_align, os_maker_length)
 		if err != nil {
 			return errors.New("Unable to read OS maker value.")
 		}
-		sas.OS_name = string(sas.buf[0:os_maker_length])
+		sas.OSName = string(sas.buf[0:os_maker_length])
 	}
 
 	return nil

@@ -185,6 +185,7 @@ func (ser *Series) Missing() []bool {
 	return ser.missing
 }
 
+// Length returns the number of elements in a Series.
 func (ser *Series) Length() int {
 	return ser.length
 }
@@ -308,6 +309,8 @@ func (ser *Series) AllEqual(other *Series) bool {
 	return ser.AllClose(other, 0.0)
 }
 
+// UpcastNumeric converts in-place all numeric type variables to
+// float64 values.  Non-numeric data is not affected.
 func (ser *Series) UpcastNumeric() {
 
 	switch ser.data.(type) {
@@ -363,8 +366,13 @@ func (ser *Series) UpcastNumeric() {
 	}
 }
 
+// SeriesArray is an array of pointers to Series objects.  It can represent
+// a dataset consisting of several variables.
 type SeriesArray []*Series
 
+// AllClose returns true if the numeric values in the two series are
+// within the given tolerance.  The behavior is identical to AllEqual
+// for string data.
 func (ser SeriesArray) AllClose(other []*Series, tol float64) bool {
 
 	if len(ser) != len(other) {
@@ -380,6 +388,7 @@ func (ser SeriesArray) AllClose(other []*Series, tol float64) bool {
 	return true
 }
 
+// AllEqual returns true if the elements in the two series are identical.
 func (ser SeriesArray) AllEqual(other []*Series) bool {
 	return ser.AllClose(other, 0.0)
 }

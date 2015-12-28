@@ -1,7 +1,5 @@
 package datareader
 
-//
-
 import (
 	"encoding/csv"
 	"errors"
@@ -11,7 +9,8 @@ import (
 	"strconv"
 )
 
-// A Reader specifies how a data set can be read from a file.
+// A CSVReader specifies how a data set in CSV format can be read from
+// a text file.
 type CSVReader struct {
 
 	// Skip this number of rows before reading the header.
@@ -36,7 +35,8 @@ type CSVReader struct {
 	reader *io.ReadSeeker
 }
 
-// NewReader returns a dataframe.Reader that reads from r.
+// NewReader returns a dataframe.CSVReader that reads CSV data from r
+// with type inference and chunking.
 func NewCSVReader(r io.ReadSeeker) *CSVReader {
 	rdr := new(CSVReader)
 	rdr.HasHeader = true
@@ -175,7 +175,10 @@ func (rdr *CSVReader) init() error {
 }
 
 // Read reads up to the given number of lines of data and returns the
-// results.  If lines is negative the whole file is read.
+// results.  If lines is negative the whole file is read.  The return
+// value is an array of Series objects corresponding to the columns of
+// the dataset.  Data types are inferred from the file.  Use type
+// hints in the CSVReader struct to control the types directly.
 func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 
 	rdr.init()

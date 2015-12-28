@@ -118,10 +118,14 @@ func NewStataReader(r io.ReadSeeker) (*StataReader, error) {
 	return rdr, nil
 }
 
+// ColumnNames returns the names of the columns in the data file.
 func (rdr *StataReader) ColumnNames() []string {
 	return rdr.column_names
 }
 
+// ColumnTypes returns integer codes corresponding to the data types
+// in the Stata file.  See the Stata dta doumentation for more
+// information.
 func (rdr *StataReader) ColumnTypes() []int {
 	return rdr.var_types
 }
