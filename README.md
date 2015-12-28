@@ -92,12 +92,24 @@ if err != nil {
 }
 ```
 
+## Commands
+
+Two command-line utilities use the datareader package to allow
+conversion of SAS and Stata datasets to other formats without using
+Go.  Run the Makefile to compile these commands and place them into
+your GOBIN directory.
+
+The `stattocsv` command converts a SAS7BDAT or Stata dta file to a csv
+file.
+
+The `columnize` command takes the data from either a SAS7BDAT or a
+Stata dta file, and writes the data from each column into a separate
+file.  Numeric data can be stored in either binary (native 8 byte
+floats) or text format (binary is considerably faster).
+
 ## Notes
 
-See the `scripts` directory for stand-alone programs that convert
-SAS7BDAT files to various text formats.
-
-In the SAS reader, dates are not converted to Go date or time formats.
+The SAS reader does not convert dates to Go date or time formats.
 Instead, a `float64` is returned, whose meaning depends on the
 underlying SAS date/time format (which is available as the
 `ColumnFormats` field of the `SAS7BDAT` struct).  For example, the
