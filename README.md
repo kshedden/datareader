@@ -76,8 +76,7 @@ if err != nil {
 
 ## CSV
 
-The package includes a CSV reader with a limited amount of type
-inference.
+The package includes a CSV reader with type inference for the column data types.
 
 ```
 import (

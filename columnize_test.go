@@ -14,7 +14,9 @@ import (
 	"testing"
 )
 
-var all_files = []string{"test1_115.dta", "test1_115b.dta", "test1_117.dta", "test1_118.dta"}
+var all_files = []string{"test1_115.dta", "test1_115b.dta", "test1_117.dta", "test1_118.dta",
+	"test1_compression_no.sas7bdat", "test1_compression_binary.sas7bdat",
+	"test1_compression_char.sas7bdat"}
 
 const (
 	generate = false
@@ -42,7 +44,7 @@ func TestGenerate(t *testing.T) {
 		panic(err)
 	}
 
-	cf, err := os.Create(filepath.Join("test_files", "checksums.json"))
+	cf, err := os.Create(filepath.Join("test_files", "columnize_checksums.json"))
 	if err != nil {
 		panic(err)
 	}
@@ -100,7 +102,7 @@ func Test1(t *testing.T) {
 		return
 	}
 
-	cf, err := os.Open(filepath.Join("test_files", "checksums.json"))
+	cf, err := os.Open(filepath.Join("test_files", "columnize_checksums.json"))
 	if err != nil {
 		panic(err)
 	}
@@ -121,7 +123,6 @@ func Test1(t *testing.T) {
 
 			for j, _ := range m {
 				if m[j] != m1[j] {
-					//os.Stderr.Write([]byte(fmt.Sprintf("%s\n", f)))
 					t.Fail()
 				}
 			}
