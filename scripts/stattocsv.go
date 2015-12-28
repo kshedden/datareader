@@ -13,13 +13,7 @@ import (
 	"strings"
 )
 
-type statfilereader interface {
-	ColumnNames() []string
-	ColumnTypes() []int
-	Read(int) ([]*datareader.Series, error)
-}
-
-func do_conversion(rdr statfilereader) {
+func do_conversion(rdr datareader.Statfilereader) {
 
 	w := csv.NewWriter(os.Stdout)
 
@@ -108,7 +102,7 @@ func main() {
 		return
 	}
 
-	var rdr statfilereader
+	var rdr datareader.Statfilereader
 	if filetype == "sas" {
 		rdr, err = datareader.NewSAS7BDATReader(f)
 		if err != nil {

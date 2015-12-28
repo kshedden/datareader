@@ -19,12 +19,7 @@ import (
 	"strings"
 )
 
-type statfilereader interface {
-	ColumnNames() []string
-	Read(int) ([]*datareader.Series, error)
-}
-
-func do_split(rdr statfilereader, col_dir string, mode string) {
+func do_split(rdr datareader.Statfilereader, col_dir string, mode string) {
 
 	ncol := len(rdr.ColumnNames())
 	columns := make([]io.Writer, ncol)
@@ -131,7 +126,7 @@ func main() {
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("unable to open %s\n", in_file))
 	}
-	var rdr statfilereader
+	var rdr datareader.Statfilereader
 	if filetype == "sas" {
 		rdr, err = datareader.NewSAS7BDATReader(r)
 		if err != nil {
