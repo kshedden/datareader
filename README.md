@@ -96,8 +96,8 @@ if err != nil {
 
 Two command-line utilities use the datareader package to allow
 conversion of SAS and Stata datasets to other formats without using
-Go.  Run the Makefile to compile these commands and place them into
-your GOBIN directory.
+Go.  Run the Makefile to compile these commands.  The executables will
+be copied into your GOBIN directory.
 
 The `stattocsv` command converts a SAS7BDAT or Stata dta file to a csv
 file, it can be used as follows:
