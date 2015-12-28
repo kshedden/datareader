@@ -105,8 +105,8 @@ func main() {
 		return
 	}
 
-	in_file := flag.String("input", "", "A SAS7BDAT or Stata dta file name")
-	col_dir := flag.String("output", "", "A directory for writing the columns")
+	in_file := flag.String("in", "", "A SAS7BDAT or Stata dta file name")
+	col_dir := flag.String("out", "", "A directory for writing the columns")
 	mode := flag.String("mode", "text", "Write numeric data as 'text' or 'binary'")
 
 	flag.Parse()
