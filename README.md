@@ -100,20 +100,35 @@ Go.  Run the Makefile to compile these commands and place them into
 your GOBIN directory.
 
 The `stattocsv` command converts a SAS7BDAT or Stata dta file to a csv
-file.
+file, it can be used as follows:
+
+```
+> stattocsv file.sas7bdat > file.csv
+> stattocsv file.dta > file.csv
+```
 
 The `columnize` command takes the data from either a SAS7BDAT or a
 Stata dta file, and writes the data from each column into a separate
 file.  Numeric data can be stored in either binary (native 8 byte
 floats) or text format (binary is considerably faster).
 
-## Notes
+```
+> columnize -in=file.sas7bdat -out=cols -mode=binary
+> columnize -in=file.dta -out=cols -mode=text
+```
+
+## Notes/TODO
 
 The SAS reader does not convert dates to Go date or time formats.
 Instead, a `float64` is returned, whose meaning depends on the
 underlying SAS date/time format (which is available as the
 `ColumnFormats` field of the `SAS7BDAT` struct).  For example, the
 value may represent the number of days since January 1, 1960.
+
+Missing data handling for SAS files may not be correct.  Missing data
+for Stata files should work according to the file specification.
+
+The commands may not format date variables properly.
 
 This package has not been extensively tested, but has been checked on
 several files (including both compressed and uncompressed SAS files
