@@ -96,7 +96,7 @@ func do_split(rdr datareader.Statfilereader, col_dir string, mode string) {
 func main() {
 
 	if len(os.Args) != 4 {
-		os.Stderr.WriteString(fmt.Sprintf("usage: %s -input=file -output=directory -mode=mode\n", os.Args[0]))
+		os.Stderr.WriteString(fmt.Sprintf("usage: %s -in=file -out=directory -mode=mode\n", os.Args[0]))
 		return
 	}
 

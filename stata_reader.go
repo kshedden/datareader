@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -137,12 +136,16 @@ func (rdr *StataReader) ColumnTypes() []int {
 
 func (rdr *StataReader) init() error {
 
+	var err error
+
 	// Determine if we have <117 or >=117 dta version.
 	c := make([]byte, 1)
-	rdr.reader.Read(c)
+	_, err = rdr.reader.Read(c)
+	if err != nil {
+		return err
+	}
 	rdr.reader.Seek(0, 0)
 
-	var err error
 	if string(c) == "<" {
 		err = rdr.read_new_header()
 	} else {
@@ -199,52 +202,75 @@ func (rdr *StataReader) read_expansion_fields() {
 	}
 }
 
-func (rdr *StataReader) read_int(width int) int {
+func (rdr *StataReader) read_int(width int) (int, error) {
 
 	switch width {
 	default:
-		os.Stderr.WriteString(fmt.Sprintf("unsupported width %d in read_int", width))
-		panic("")
+		return 0, errors.New(fmt.Sprintf("unsupported width %d in read_int", width))
 	case 1:
 		var x int8
-		binary.Read(rdr.reader, rdr.ByteOrder, &x)
-		return int(x)
+		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
+		if err != nil {
+			return 0, err
+		}
+		return int(x), nil
 	case 2:
 		var x int16
-		binary.Read(rdr.reader, rdr.ByteOrder, &x)
-		return int(x)
+		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
+		if err != nil {
+			return 0, err
+		}
+		return int(x), nil
 	case 4:
 		var x int32
-		binary.Read(rdr.reader, rdr.ByteOrder, &x)
-		return int(x)
+		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
+		if err != nil {
+			return 0, err
+		}
+		return int(x), nil
 	case 8:
 		var x int64
-		binary.Read(rdr.reader, rdr.ByteOrder, &x)
-		return int(x)
+		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
+		if err != nil {
+			return 0, err
+		}
+		return int(x), nil
 	}
 }
 
-func (rdr *StataReader) read_uint(width int) int {
+func (rdr *StataReader) read_uint(width int) (int, error) {
 
 	switch width {
 	default:
 		panic("unsupported width in read_int")
 	case 1:
 		var x uint8
-		binary.Read(rdr.reader, rdr.ByteOrder, &x)
-		return int(x)
+		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
+		if err != nil {
+			return 0, err
+		}
+		return int(x), nil
 	case 2:
 		var x uint16
-		binary.Read(rdr.reader, rdr.ByteOrder, &x)
-		return int(x)
+		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
+		if err != nil {
+			return 0, err
+		}
+		return int(x), nil
 	case 4:
 		var x uint32
-		binary.Read(rdr.reader, rdr.ByteOrder, &x)
-		return int(x)
+		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
+		if err != nil {
+			return 0, err
+		}
+		return int(x), nil
 	case 8:
 		var x uint64
-		binary.Read(rdr.reader, rdr.ByteOrder, &x)
-		return int(x)
+		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
+		if err != nil {
+			return 0, err
+		}
+		return int(x), nil
 	}
 }
 
@@ -281,10 +307,16 @@ func (rdr *StataReader) read_old_header() error {
 	rdr.reader.Seek(2, 1)
 
 	// Number of variables
-	rdr.Nvar = rdr.read_int(nvar_length[rdr.FormatVersion])
+	rdr.Nvar, err = rdr.read_int(nvar_length[rdr.FormatVersion])
+	if err != nil {
+		return err
+	}
 
 	// Number of observations
-	rdr.RowCount = rdr.read_int(row_count_length[rdr.FormatVersion])
+	rdr.RowCount, err = rdr.read_int(row_count_length[rdr.FormatVersion])
+	if err != nil {
+		return err
+	}
 
 	// Data label
 	rdr.reader.Read(buf[0:81])
@@ -315,7 +347,13 @@ func (rdr *StataReader) read_new_header() error {
 	var n8 uint8
 
 	// <stata_dta><header><release>
-	rdr.reader.Read(buf[0:28])
+	n, err := rdr.reader.Read(buf[0:28])
+	if err != nil {
+		return err
+	}
+	if n != 28 {
+		return errors.New("file appears to be truncated")
+	}
 	if string(buf[0:11]) != "<stata_dta>" {
 		return errors.New("Invalid Stata file")
 	}
@@ -346,28 +384,52 @@ func (rdr *StataReader) read_new_header() error {
 	rdr.reader.Seek(15, 1)
 
 	// Number of variables
-	rdr.Nvar = rdr.read_int(nvar_length[rdr.FormatVersion])
+	rdr.Nvar, err = rdr.read_int(nvar_length[rdr.FormatVersion])
+	if err != nil {
+		return err
+	}
 
 	// </K><N>
 	rdr.reader.Seek(7, 1)
 
 	// Number of observations
-	rdr.RowCount = rdr.read_int(row_count_length[rdr.FormatVersion])
+	rdr.RowCount, err = rdr.read_int(row_count_length[rdr.FormatVersion])
+	if err != nil {
+		return err
+	}
 
 	// </N><label>
 	rdr.reader.Seek(11, 1)
 
 	// Data set label
-	w := rdr.read_uint(dataset_label_length[rdr.FormatVersion])
-	rdr.reader.Read(buf[0:w])
+	w, err := rdr.read_uint(dataset_label_length[rdr.FormatVersion])
+	if err != nil {
+		return err
+	}
+	n, err = rdr.reader.Read(buf[0:w])
+	if err != nil {
+		return err
+	}
+	if n != w {
+		return errors.New("stata file appears to be truncated")
+	}
 	rdr.DatasetLabel = string(buf[0:w])
 
 	// </label><timestamp>
 	rdr.reader.Seek(19, 1)
 
 	// Time stamp
-	binary.Read(rdr.reader, rdr.ByteOrder, &n8)
-	rdr.reader.Read(buf[0:n8])
+	err = binary.Read(rdr.reader, rdr.ByteOrder, &n8)
+	if err != nil {
+		return err
+	}
+	n, err = rdr.reader.Read(buf[0:n8])
+	if err != nil {
+		return err
+	}
+	if n != int(n8) {
+		return errors.New("stata file appears to be truncated")
+	}
 	rdr.TimeStamp = string(buf[0:n8])
 
 	// </timestamp></header><map> + 16 bytes
@@ -388,34 +450,49 @@ func (rdr *StataReader) read_new_header() error {
 	return nil
 }
 
-func (rdr *StataReader) read_vartypes() {
+func (rdr *StataReader) read_vartypes() error {
+
+	var err error
+
 	switch {
 	case rdr.FormatVersion == 118:
-		rdr.read_vartypes_16()
+		err = rdr.read_vartypes_16()
 	case rdr.FormatVersion == 117:
-		rdr.read_vartypes_16()
+		err = rdr.read_vartypes_16()
 	case rdr.FormatVersion == 115:
-		rdr.read_vartypes_8()
+		err = rdr.read_vartypes_8()
 	case rdr.FormatVersion == 114:
-		rdr.read_vartypes_8()
+		err = rdr.read_vartypes_8()
 	default:
-		panic(fmt.Sprintf("unknown format version %v in read_vartypes", rdr.FormatVersion))
+		err = errors.New(fmt.Sprintf("unknown format version %v in read_vartypes", rdr.FormatVersion))
 	}
+
+	return err
 }
 
-func (rdr *StataReader) read_vartypes_16() {
+func (rdr *StataReader) read_vartypes_16() error {
+	var err error
 	rdr.reader.Seek(rdr.seek_vartypes+16, 0)
 	rdr.var_types = make([]int, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
-		rdr.var_types[k] = rdr.read_uint(2)
+		rdr.var_types[k], err = rdr.read_uint(2)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (rdr *StataReader) read_vartypes_8() {
+func (rdr *StataReader) read_vartypes_8() error {
+	var err error
 	rdr.var_types = make([]int, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
-		rdr.var_types[k] = rdr.read_uint(1)
+		rdr.var_types[k], err = rdr.read_uint(1)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (rdr *StataReader) translate_vartypes() {
