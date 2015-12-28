@@ -128,9 +128,3 @@ value may represent the number of days since January 1, 1960.
 Missing data handling for SAS files may not be correct.  Missing data
 for Stata files should work according to the file specification.
 
-The commands may not format date variables properly.
-
-This package has not been extensively tested, but has been checked on
-several files (including both compressed and uncompressed SAS files
-and Stata dta versions 115, 117, and 118) and found to give correct
-results.

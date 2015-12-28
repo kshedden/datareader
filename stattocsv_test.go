@@ -2,86 +2,82 @@ package datareader
 
 import (
 	"crypto/md5"
-	"encoding/json"
-	//"fmt"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-const (
-	generate_stattocsv = false
-)
+func run_stattocsv(filenames []string) map[string][16]byte {
 
-// Not really a test function, used to generate md5 sums for the results.
-func Test_generate_stattocsv(t *testing.T) {
-
-	if !generate_stattocsv {
-		return
-	}
-
-	ms := make(map[string][16]byte)
-
-	for _, f := range all_test_files {
-		m := stattocsv_base(f)
-		ms[f] = m
-	}
-
-	b, err := json.Marshal(ms)
-	if err != nil {
-		panic(err)
-	}
-
-	cf, err := os.Create(filepath.Join("test_files", "stattocsv_checksums.json"))
-	if err != nil {
-		panic(err)
-	}
-
-	cf.Write(b)
-	cf.Close()
-}
-
-func stattocsv_base(fname string) [16]byte {
+	checksums := make(map[string][16]byte)
 
 	cmd_name := filepath.Join(os.Getenv("GOBIN"), "stattocsv")
-	infile := filepath.Join("test_files", fname)
-	args := []string{infile}
-	rslt, err := exec.Command(cmd_name, args...).Output()
+	for _, file := range filenames {
+		infile := filepath.Join("test_files", "data", file)
+		args := []string{infile}
+		rslt, err := exec.Command(cmd_name, args...).Output()
+		if err != nil {
+			panic(err)
+		}
+		checksums[file] = md5.Sum(rslt)
+	}
+
+	return checksums
+}
+
+func ref_checksums(filenames []string) map[string][16]byte {
+
+	checksums := make(map[string][16]byte)
+
+	for _, file := range filenames {
+		file1 := strings.Replace(file, ".dta", ".csv", -1)
+		file1 = strings.Replace(file1, ".sas7bdat", ".csv", -1)
+		infile := filepath.Join("test_files", "ref", file1)
+		fid, err := os.Open(infile)
+		if err != nil {
+			panic(err)
+		}
+		b, err := ioutil.ReadAll(fid)
+		if err != nil {
+			panic(err)
+		}
+		checksums[file] = md5.Sum(b)
+	}
+
+	return checksums
+}
+
+func get_filenames() []string {
+	files, err := ioutil.ReadDir(filepath.Join("test_files", "data"))
 	if err != nil {
 		panic(err)
 	}
+	filenames := make([]string, 0, 10)
+	for _, f := range files {
+		name := f.Name()
+		if !strings.HasPrefix(name, ".") && (strings.HasSuffix(name, ".dta") || strings.HasSuffix(name, ".sas7bdat")) {
+			filenames = append(filenames, name)
+		}
+	}
 
-	m := md5.Sum(rslt)
-
-	return m
+	return filenames
 }
 
 func Test_stattocsv_1(t *testing.T) {
 
-	if generate_stattocsv {
-		return
-	}
+	test_files := get_filenames()
+	new_checksums := run_stattocsv(test_files)
+	old_checksums := ref_checksums(test_files)
 
-	cf, err := os.Open(filepath.Join("test_files", "stattocsv_checksums.json"))
-	if err != nil {
-		panic(err)
-	}
+	for ky, _ := range old_checksums {
 
-	var checksum map[string][]byte
-	b, err := ioutil.ReadAll(cf)
-	if err != nil {
-		panic(err)
-	}
-	json.Unmarshal(b, &checksum)
-
-	for _, f := range all_test_files {
-		m := stattocsv_base(f)
-		m1 := checksum[f]
-
-		for j, _ := range m {
-			if m[j] != m1[j] {
+		for j := 0; j < 16; j++ {
+			if new_checksums[ky][j] != old_checksums[ky][j] {
+				fmt.Printf("%v\n%v\n%v\n\n", ky, new_checksums[ky], old_checksums[ky])
 				t.Fail()
 			}
 		}

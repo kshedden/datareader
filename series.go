@@ -370,9 +370,9 @@ func (ser *Series) UpcastNumeric() {
 // a dataset consisting of several variables.
 type SeriesArray []*Series
 
-// AllClose returns true if the numeric values in the two series are
-// within the given tolerance.  The behavior is identical to AllEqual
-// for string data.
+// AllClose returns true if all numeric values in corresponding
+// columns of the two arrays of Series objects are within the given
+// tolerance.  The behavior is identical to AllEqual for string data.
 func (ser SeriesArray) AllClose(other []*Series, tol float64) bool {
 
 	if len(ser) != len(other) {
@@ -388,7 +388,8 @@ func (ser SeriesArray) AllClose(other []*Series, tol float64) bool {
 	return true
 }
 
-// AllEqual returns true if the elements in the two series are identical.
+// AllEqual returns true if the elements in corresponding columns of
+// the two arrays of Series objects are identical.
 func (ser SeriesArray) AllEqual(other []*Series) bool {
 	return ser.AllClose(other, 0.0)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/kshedden/datareader"
 	"os"
 	"strings"
+	"time"
 )
 
 func do_conversion(rdr datareader.Statfilereader) {
@@ -39,6 +40,7 @@ func do_conversion(rdr datareader.Statfilereader) {
 
 		numbercols := make([][]float64, ncol)
 		stringcols := make([][]string, ncol)
+		timecols := make([][]time.Time, ncol)
 
 		missing := make([][]bool, ncol)
 
@@ -47,7 +49,9 @@ func do_conversion(rdr datareader.Statfilereader) {
 			dcol := chunk[j].Data()
 			switch dcol.(type) {
 			default:
-				panic("unknown type")
+				panic(fmt.Sprintf("unknown type: %T", dcol))
+			case []time.Time:
+				timecols[j] = dcol.([]time.Time)
 			case []float64:
 				numbercols[j] = dcol.([]float64)
 			case []string:
@@ -63,9 +67,15 @@ func do_conversion(rdr datareader.Statfilereader) {
 					} else {
 						row[j] = ""
 					}
-				} else {
+				} else if stringcols[j] != nil {
 					if (missing[j] == nil) || (missing[j][i] == false) {
 						row[j] = fmt.Sprintf("%v", stringcols[j][i])
+					} else {
+						row[j] = ""
+					}
+				} else if timecols[j] != nil {
+					if (missing[j] == nil) || (missing[j][i] == false) {
+						row[j] = fmt.Sprintf("%v", timecols[j][i])
 					} else {
 						row[j] = ""
 					}
@@ -109,11 +119,14 @@ func main() {
 			panic(err)
 		}
 	} else if filetype == "stata" {
-		rdr, err = datareader.NewStataReader(f)
-		fmt.Printf("%v\n", rdr.ColumnTypes())
+		stata, err := datareader.NewStataReader(f)
 		if err != nil {
 			panic(err)
 		}
+		stata.ConvertDates = true
+		stata.InsertCategoryLabels = true
+		stata.InsertStrls = true
+		rdr = stata
 	}
 
 	do_conversion(rdr)

@@ -10,7 +10,7 @@ import (
 
 func TestCSV1(t *testing.T) {
 
-	file, err := os.Open(filepath.Join("test_files", "testcsv1.csv"))
+	file, err := os.Open(filepath.Join("test_files", "data", "testcsv1.csv"))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		t.Fail()
@@ -34,7 +34,7 @@ func TestCSV1(t *testing.T) {
 
 func TestCSV2(t *testing.T) {
 
-	file, err := os.Open(filepath.Join("test_files", "testcsv2.csv"))
+	file, err := os.Open(filepath.Join("test_files", "data", "testcsv2.csv"))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		t.Fail()
@@ -59,7 +59,7 @@ func TestCSV2(t *testing.T) {
 
 func TestCSV3(t *testing.T) {
 
-	file, err := os.Open(filepath.Join("test_files", "testcsv2.csv"))
+	file, err := os.Open(filepath.Join("test_files", "data", "testcsv2.csv"))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		t.Fail()
@@ -86,7 +86,7 @@ func TestCSV3(t *testing.T) {
 
 func TestCSV4(t *testing.T) {
 
-	file, err := os.Open(filepath.Join("test_files", "testcsv2.csv"))
+	file, err := os.Open(filepath.Join("test_files", "data", "testcsv2.csv"))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		t.Fail()

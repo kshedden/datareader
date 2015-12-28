@@ -1,6 +1,7 @@
 package datareader
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -13,11 +14,15 @@ import (
 
 var supported_dta_versions = []int{114, 115, 117, 118}
 
-var row_count_width = map[int]int{114: 4, 115: 4, 117: 4, 118: 8}
+var row_count_length = map[int]int{114: 4, 115: 4, 117: 4, 118: 8}
 
-var nvar_width = map[int]int{114: 2, 115: 2, 117: 2, 118: 2}
+var nvar_length = map[int]int{114: 2, 115: 2, 117: 2, 118: 2}
 
-var dataset_label_width = map[int]int{117: 1, 118: 2}
+var dataset_label_length = map[int]int{117: 1, 118: 2}
+
+var value_label_length = map[int]int{117: 33, 118: 129}
+
+var vo_length = map[int]int{117: 8, 118: 12}
 
 // A StataReader reads Stata dta data files.  Currently versions
 // 114-118 of Stata dta files can be read.  Not all fields in the
@@ -246,20 +251,26 @@ func (rdr *StataReader) read_uint(width int) int {
 // read_old_header reads the pre version 117 header
 func (rdr *StataReader) read_old_header() error {
 
+	rdr.reader.Seek(0, 0)
 	buf := make([]byte, 81)
 
 	// Get the format
 	var format uint8
-	binary.Read(rdr.reader, binary.LittleEndian, &format)
-
+	err := binary.Read(rdr.reader, binary.LittleEndian, &format)
+	if err != nil {
+		return err
+	}
 	rdr.FormatVersion = int(format)
 	if !rdr.supported_version() {
-		return errors.New("Invalid Stata dta format version")
+		return errors.New(fmt.Sprintf("Invalid Stata dta format version: %v\n", rdr.FormatVersion))
 	}
 
 	// Get the byte order
 	var bo uint8
-	binary.Read(rdr.reader, binary.LittleEndian, &bo)
+	err = binary.Read(rdr.reader, binary.LittleEndian, &bo)
+	if err != nil {
+		return err
+	}
 	if bo == 1 {
 		rdr.ByteOrder = binary.BigEndian
 	} else {
@@ -270,10 +281,10 @@ func (rdr *StataReader) read_old_header() error {
 	rdr.reader.Seek(2, 1)
 
 	// Number of variables
-	rdr.Nvar = rdr.read_int(nvar_width[rdr.FormatVersion])
+	rdr.Nvar = rdr.read_int(nvar_length[rdr.FormatVersion])
 
 	// Number of observations
-	rdr.RowCount = rdr.read_int(row_count_width[rdr.FormatVersion])
+	rdr.RowCount = rdr.read_int(row_count_length[rdr.FormatVersion])
 
 	// Data label
 	rdr.reader.Read(buf[0:81])
@@ -335,19 +346,19 @@ func (rdr *StataReader) read_new_header() error {
 	rdr.reader.Seek(15, 1)
 
 	// Number of variables
-	rdr.Nvar = rdr.read_int(nvar_width[rdr.FormatVersion])
+	rdr.Nvar = rdr.read_int(nvar_length[rdr.FormatVersion])
 
 	// </K><N>
 	rdr.reader.Seek(7, 1)
 
 	// Number of observations
-	rdr.RowCount = rdr.read_int(row_count_width[rdr.FormatVersion])
+	rdr.RowCount = rdr.read_int(row_count_length[rdr.FormatVersion])
 
 	// </N><label>
 	rdr.reader.Seek(11, 1)
 
 	// Data set label
-	w := rdr.read_uint(dataset_label_width[rdr.FormatVersion])
+	w := rdr.read_uint(dataset_label_length[rdr.FormatVersion])
 	rdr.reader.Read(buf[0:w])
 	rdr.DatasetLabel = string(buf[0:w])
 
@@ -434,7 +445,7 @@ func (rdr *StataReader) read_formats() {
 	case rdr.FormatVersion == 118:
 		rdr.do_read_formats(57, true)
 	case rdr.FormatVersion == 117:
-		rdr.do_read_formats(57, true)
+		rdr.do_read_formats(49, true)
 	case rdr.FormatVersion == 115:
 		rdr.do_read_formats(49, false)
 	case rdr.FormatVersion == 114:
@@ -483,7 +494,7 @@ func (rdr *StataReader) read_varnames() {
 	case rdr.FormatVersion == 118:
 		rdr.do_read_varnames(129, true)
 	case rdr.FormatVersion == 117:
-		rdr.do_read_varnames(129, true)
+		rdr.do_read_varnames(33, true)
 	case rdr.FormatVersion == 115:
 		rdr.do_read_varnames(33, false)
 	case rdr.FormatVersion == 114:
@@ -510,7 +521,7 @@ func (rdr *StataReader) read_value_label_names() {
 	case rdr.FormatVersion == 118:
 		rdr.do_read_value_label_names(129, true)
 	case rdr.FormatVersion == 117:
-		rdr.do_read_value_label_names(129, true)
+		rdr.do_read_value_label_names(33, true)
 	case rdr.FormatVersion == 116:
 		rdr.do_read_value_label_names(33, false)
 	case rdr.FormatVersion == 115:
@@ -565,6 +576,7 @@ func (rdr *StataReader) read_value_labels() {
 	rdr.reader.Seek(rdr.seek_value_labels+14, 0)
 	var n int32
 	var textlen int32
+	vlw := value_label_length[rdr.FormatVersion]
 
 	for {
 		rdr.reader.Read(buf[0:5])
@@ -573,8 +585,8 @@ func (rdr *StataReader) read_value_labels() {
 		}
 
 		rdr.reader.Seek(4, 1)
-		rdr.reader.Read(buf[0:129])
-		labname := string(partition(buf[0:129]))
+		rdr.reader.Read(buf[0:vlw])
+		labname := string(partition(buf[0:vlw]))
 		rdr.reader.Seek(3, 1)
 
 		binary.Read(rdr.reader, rdr.ByteOrder, &n)
@@ -591,8 +603,10 @@ func (rdr *StataReader) read_value_labels() {
 			binary.Read(rdr.reader, rdr.ByteOrder, &val[j])
 		}
 
-		buf = make([]byte, textlen)
-		rdr.reader.Read(buf)
+		if cap(buf) < int(textlen) {
+			buf = make([]byte, 2*textlen)
+		}
+		rdr.reader.Read(buf[0:textlen])
 
 		vk := make(map[int32]string)
 
@@ -611,8 +625,8 @@ func (rdr *StataReader) read_strls() error {
 
 	rdr.reader.Seek(rdr.seek_strls+7, 0)
 
-	var v uint32
-	var o uint64
+	vo := make([]byte, vo_length[rdr.FormatVersion])
+	vo8 := make([]byte, 8)
 	var t uint8
 	var length uint32
 
@@ -621,36 +635,49 @@ func (rdr *StataReader) read_strls() error {
 
 	rdr.Strls[0] = ""
 
+	buf := make([]byte, 100)
 	buf3 := make([]byte, 3)
 
 	for {
-		rdr.reader.Read(buf3)
+		n, err := rdr.reader.Read(buf3)
+		if (n <= 0) || (err == io.EOF) {
+			break
+		} else if err != nil {
+			return err
+		}
 		if string(buf3) != "GSO" {
 			break
 		}
 
-		binary.Read(rdr.reader, rdr.ByteOrder, &v)
-		binary.Read(rdr.reader, rdr.ByteOrder, &o)
+		binary.Read(rdr.reader, rdr.ByteOrder, vo)
 		binary.Read(rdr.reader, rdr.ByteOrder, &t)
 		binary.Read(rdr.reader, rdr.ByteOrder, &length)
 
-		// This is intended to create an 8-byte key that
-		// matches the keys found in the actual data.  We then
-		// insert the strls into the data set by key.
-		var ky uint64
-		ky = uint64(v) | (o << 16)
+		if vo_length[rdr.FormatVersion] == 12 {
+			copy(vo8[0:2], vo[0:2])
+			copy(vo8[2:8], vo[4:10])
+		} else {
+			copy(vo8, vo)
+		}
 
-		buf := make([]byte, length)
-		rdr.reader.Read(buf)
+		var ptr uint64
+		binary.Read(bytes.NewReader(vo8), rdr.ByteOrder, &ptr)
+
+		if len(buf) < int(length) {
+			buf = make([]byte, 2*length)
+		}
+		rdr.reader.Read(buf[0:length])
 
 		if t == 130 {
-			buf = partition(buf)
-			rdr.Strls[ky] = string(buf)
+			buf = partition(buf[0:length])
+			rdr.Strls[ptr] = string(buf)
 		} else if t == 129 {
-			rdr.StrlsBytes[ky] = buf
+			rdr.StrlsBytes[ptr] = make([]byte, length)
+			copy(rdr.StrlsBytes[ptr], buf[0:length])
+		} else {
+			return errors.New("unknown t value")
 		}
 	}
-
 	return nil
 }
 
@@ -692,11 +719,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 		case t == 65529:
 			data[j] = make([]int16, nval)
 		case t == 65530:
-			if rdr.InsertCategoryLabels {
-				data[j] = make([]string, nval)
-			} else {
-				data[j] = make([]int8, nval)
-			}
+			data[j] = make([]int8, nval)
 		}
 	}
 
@@ -705,6 +728,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 	}
 
 	buf := make([]byte, 2045)
+	buf8 := make([]byte, 8)
 	for i := 0; i < nval; i++ {
 
 		rdr.rows_read += 1
@@ -722,8 +746,13 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 				data[j].([]string)[i] = string(partition(buf[0:t]))
 			case t == 32768:
 				if rdr.InsertStrls {
+					// The STRL pointer is 2 byte integer followed by 6 byte integer
+					// or 4 + 4 depending on the version
+					binary.Read(rdr.reader, rdr.ByteOrder, buf8)
+					fmt.Printf("VO: %v\n", buf8)
 					var ptr uint64
-					binary.Read(rdr.reader, rdr.ByteOrder, &ptr)
+					binary.Read(bytes.NewReader(buf8), rdr.ByteOrder, &ptr)
+					fmt.Printf("ptr=%v\n", ptr)
 					data[j].([]string)[i] = rdr.Strls[ptr]
 				} else {
 					binary.Read(rdr.reader, rdr.ByteOrder, &(data[j].([]uint64)[i]))
@@ -763,33 +792,36 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 				if (x < -127) || (x > 100) {
 					missing[j][i] = true
 				}
-				if !rdr.InsertCategoryLabels {
-					data[j].([]int8)[i] = x
-				} else {
-					// bytes are converted to categorical.
-					// We attempt to replace the value
-					// with its appropriate category
-					// label.  If this is not possible, we
-					// just convert the byte value to a
-					// string.
+				data[j].([]int8)[i] = x
+			}
+		}
+	}
 
-					// Check to see if we have label information
-					labname := rdr.ValueLabelNames[j]
-					mp, ok := rdr.ValueLabels[labname]
-					if !ok {
-						data[j].([]string)[i] = fmt.Sprintf("%v", x)
-						continue
-					}
+	if rdr.InsertCategoryLabels {
+		for j := 0; j < rdr.Nvar; j++ {
+			labname := rdr.ValueLabelNames[j]
+			mp, ok := rdr.ValueLabels[labname]
+			if !ok {
+				continue
+			}
 
-					// Check to see if we have a label for this category
-					v, ok := mp[int32(x)]
+			idat, err := cast_to_int(data[j])
+			if err != nil {
+				panic(fmt.Sprintf("non-integer value label indices: %v", err))
+			}
+
+			newdata := make([]string, nval)
+			for i := 0; i < nval; i++ {
+				if !missing[j][i] {
+					v, ok := mp[int32(idat[i])]
 					if ok {
-						data[j].([]string)[i] = v
+						newdata[i] = v
 					} else {
-						data[j].([]string)[i] = fmt.Sprintf("%v", x)
+						newdata[i] = fmt.Sprintf("%v", idat[i])
 					}
 				}
 			}
+			data[j] = newdata
 		}
 	}
 
@@ -816,9 +848,9 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 
 func (rdr *StataReader) do_convert_dates(v interface{}, format string) interface{} {
 
-	vec, ok := v.([]int32)
-	if !ok {
-		panic("unable to handle raw type in date vector")
+	vec, err := upcast_numeric(v)
+	if err != nil {
+		panic(fmt.Sprintf("unable to handle type %T in date vector", v))
 	}
 
 	bt := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)

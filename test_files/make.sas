@@ -1,4 +1,4 @@
-libname sasfiles '.';
+libname sasfiles 'data';
 
 data test1;
     infile 'test1.csv' delimiter=',';

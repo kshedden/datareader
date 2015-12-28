@@ -14,10 +14,6 @@ import (
 	"testing"
 )
 
-var all_test_files = []string{"test1_115.dta", "test1_115b.dta", "test1_117.dta", "test1_118.dta",
-	"test1_compression_no.sas7bdat", "test1_compression_binary.sas7bdat",
-	"test1_compression_char.sas7bdat"}
-
 const (
 	generate_columnize = false
 )
@@ -30,6 +26,8 @@ func Test_generate_columnize(t *testing.T) {
 	}
 
 	ms := make(map[string][16]byte)
+
+	all_test_files := get_filenames()
 
 	for _, f := range all_test_files {
 		for _, mode := range []string{"text", "binary"} {
@@ -55,12 +53,12 @@ func Test_generate_columnize(t *testing.T) {
 
 func columnize_base(fname, mode string) [16]byte {
 
-	outpath := filepath.Join("test_files", "cols")
+	outpath := filepath.Join("test_files", "tmp", "cols")
 	os.RemoveAll(outpath)
 	os.Mkdir(outpath, os.ModeDir)
 
 	cmd_name := filepath.Join(os.Getenv("GOBIN"), "columnize")
-	infile := filepath.Join("test_files", fname)
+	infile := filepath.Join("test_files", "tmp", "cols", fname)
 	args := []string{fmt.Sprintf("-in=%s", infile), fmt.Sprintf("-out=%s", outpath),
 		fmt.Sprintf("-mode=%s", mode)}
 	_, err := exec.Command(cmd_name, args...).Output()
@@ -80,7 +78,7 @@ func columnize_base(fname, mode string) [16]byte {
 		if strings.HasPrefix(f, ".") {
 			continue
 		}
-		gname := filepath.Join("test_files", "cols", f)
+		gname := filepath.Join("test_files", "tmp", "cols", f)
 		g, err := os.Open(gname)
 		if err != nil {
 			panic(err)
@@ -113,6 +111,8 @@ func Test_columnize_1(t *testing.T) {
 		panic(err)
 	}
 	json.Unmarshal(b, &checksum)
+
+	all_test_files := get_filenames()
 
 	for _, f := range all_test_files {
 		for _, mode := range []string{"text", "binary"} {

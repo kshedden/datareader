@@ -9,7 +9,7 @@ import (
 
 func stata_base_test(fname_csv, fname_stata string) bool {
 
-	f, err := os.Open(filepath.Join("test_files", fname_csv))
+	f, err := os.Open(filepath.Join("test_files", "data", fname_csv))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
@@ -23,7 +23,7 @@ func stata_base_test(fname_csv, fname_stata string) bool {
 		return false
 	}
 
-	r, err := os.Open(filepath.Join("test_files", fname_stata))
+	r, err := os.Open(filepath.Join("test_files", "data", fname_stata))
 	stata, err := NewStataReader(r)
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))

@@ -11,7 +11,7 @@ import (
 
 func sas_base_test(fname_csv, fname_sas string) bool {
 
-	f, err := os.Open(filepath.Join("test_files", fname_csv))
+	f, err := os.Open(filepath.Join("test_files", "data", fname_csv))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
@@ -25,7 +25,7 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 		return false
 	}
 
-	r, err := os.Open(filepath.Join("test_files", fname_sas))
+	r, err := os.Open(filepath.Join("test_files", "data", fname_sas))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
