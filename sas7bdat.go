@@ -37,7 +37,7 @@ type SAS7BDAT struct {
 	DateModified time.Time
 
 	// The number of rows in the file
-	RowCount int
+	row_count int
 
 	// The name of the data set
 	Name string
@@ -89,11 +89,11 @@ type SAS7BDAT struct {
 	column_data_offsets                  []int
 	column_data_lengths                  []int
 	columns                              []*Column
-	properties                           *SASProperties
+	properties                           *sasProperties
 }
 
 // These values don't change after the header is read.
-type SASProperties struct {
+type sasProperties struct {
 	int_length               int
 	page_bit_offset          int
 	subheader_pointer_length int
@@ -712,10 +712,10 @@ func (sas *SAS7BDAT) read_int(offset, width int) (int, error) {
 func (sas *SAS7BDAT) Read(num_rows int) ([]*Series, error) {
 
 	if num_rows < 0 {
-		num_rows = sas.RowCount - sas.current_row_in_file_index
+		num_rows = sas.row_count - sas.current_row_in_file_index
 	}
 
-	if sas.current_row_in_file_index >= sas.RowCount {
+	if sas.current_row_in_file_index >= sas.row_count {
 		return nil, nil
 	}
 
@@ -834,7 +834,7 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 				return err, false
 			}
 			if sas.current_row_on_page_index == min(
-				sas.RowCount,
+				sas.row_count,
 				sas.properties.mix_page_row_count) {
 				err, done := sas.read_next_page()
 				if err != nil {
@@ -900,7 +900,7 @@ func (sas *SAS7BDAT) read_next_page() (error, bool) {
 }
 
 func (sas *SAS7BDAT) setProperties() error {
-	prop := new(SASProperties)
+	prop := new(sasProperties)
 	sas.properties = prop
 
 	// Check magic number
@@ -1292,7 +1292,7 @@ func (sas *SAS7BDAT) process_rowsize_subheader(offset, length int) error {
 	if err != nil {
 		return err
 	}
-	sas.RowCount, err = sas.read_int(offset+row_count_offset_multiplier*int_len, int_len)
+	sas.row_count, err = sas.read_int(offset+row_count_offset_multiplier*int_len, int_len)
 	if err != nil {
 		return err
 	}
@@ -1517,10 +1517,17 @@ func (sas *SAS7BDAT) process_format_subheader(offset, length int) error {
 	return nil
 }
 
+// RowCount returns the number of rows in the data set.
+func (sas *SAS7BDAT) RowCount() int {
+	return sas.row_count
+}
+
+// ColumnNames returns the names of the columns.
 func (sas *SAS7BDAT) ColumnNames() []string {
 	return sas.column_names
 }
 
+// ColumnTypes returns integer codes for the column data types.
 func (sas *SAS7BDAT) ColumnTypes() []int {
 	return sas.column_types
 }

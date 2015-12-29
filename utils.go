@@ -10,6 +10,7 @@ import (
 type Statfilereader interface {
 	ColumnNames() []string
 	ColumnTypes() []int
+	RowCount() int
 	Read(int) ([]*Series, error)
 }
 

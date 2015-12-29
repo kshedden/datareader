@@ -55,7 +55,7 @@ type StataReader struct {
 	Nvar int
 
 	// Number of observations
-	RowCount int
+	row_count int
 
 	// Variable types, see technical documentation for meaning
 	var_types []int
@@ -120,6 +120,11 @@ func NewStataReader(r io.ReadSeeker) (*StataReader, error) {
 		return nil, err
 	}
 	return rdr, nil
+}
+
+// RowCount returns the number of rows in the data set.
+func (rdr *StataReader) RowCount() int {
+	return rdr.row_count
 }
 
 // ColumnNames returns the names of the columns in the data file.
@@ -330,7 +335,7 @@ func (rdr *StataReader) read_old_header() error {
 	}
 
 	// Number of observations
-	rdr.RowCount, err = rdr.read_int(row_count_length[rdr.FormatVersion])
+	rdr.row_count, err = rdr.read_int(row_count_length[rdr.FormatVersion])
 	if err != nil {
 		return err
 	}
@@ -422,7 +427,7 @@ func (rdr *StataReader) read_new_header() error {
 	rdr.reader.Seek(7, 1)
 
 	// Number of observations
-	rdr.RowCount, err = rdr.read_int(row_count_length[rdr.FormatVersion])
+	rdr.row_count, err = rdr.read_int(row_count_length[rdr.FormatVersion])
 	if err != nil {
 		return err
 	}
@@ -805,7 +810,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 	data := make([]interface{}, rdr.Nvar)
 	missing := make([][]bool, rdr.Nvar)
 
-	nval := int(rdr.RowCount) - rdr.rows_read
+	nval := int(rdr.row_count) - rdr.rows_read
 	if (rows >= 0) && (nval > rows) {
 		nval = rows
 	} else if nval <= 0 {
@@ -848,7 +853,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 	for i := 0; i < nval; i++ {
 
 		rdr.rows_read += 1
-		if rdr.rows_read > int(rdr.RowCount) {
+		if rdr.rows_read > int(rdr.row_count) {
 			break
 		}
 

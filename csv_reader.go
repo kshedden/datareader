@@ -129,8 +129,6 @@ func (rdr *CSVReader) sniff_types() error {
 	return nil
 }
 
-// seek_data moves the io.reader to the beginning of the first row of
-// data and returns a csv.Reader for reading the data.
 func (rdr *CSVReader) seek_data() (*csv.Reader, error) {
 
 	(*rdr.reader).Seek(0, 0)
@@ -174,17 +172,15 @@ func (rdr *CSVReader) init() error {
 	return nil
 }
 
-// Read reads up to the given number of lines of data and returns the
-// results.  If lines is negative the whole file is read.  The return
-// value is an array of Series objects corresponding to the columns of
-// the dataset.  Data types are inferred from the file.  Use type
-// hints in the CSVReader struct to control the types directly.
+// Read reads up lines rows of data and returns the results as an
+// array of Series objects.  If lines is negative the whole file is
+// read.  Data types of the Series objects are inferred from the file.
+// Use type hints in the CSVReader struct to control the types
+// directly.
 func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 
 	rdr.init()
 
-	// Create a structure to hold the data.  For efficiency, start
-	// with an array of arrays.
 	data_array := make([]interface{}, len(rdr.ColumnNames))
 	for j := range rdr.ColumnNames {
 		switch rdr.data_types[j] {
