@@ -114,8 +114,9 @@ underlying SAS date/time format (which is available as the
 `ColumnFormats` field of the `SAS7BDAT` struct).  For example, the
 value may represent the number of days since January 1, 1960.
 
-Missing data handling for SAS files may not be correct.  Missing data
-for Stata files should work according to the file specification.
+SAS files compressed with "char" compression (run length encoding)
+seem to read correctly, but some fies compressed with "binary"
+compression do not.
 
 ## Testing
 
