@@ -126,6 +126,8 @@ func main() {
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("unable to open %s\n", in_file))
 	}
+	defer r.Close()
+
 	var rdr datareader.Statfilereader
 	if filetype == "sas" {
 		rdr, err = datareader.NewSAS7BDATReader(r)

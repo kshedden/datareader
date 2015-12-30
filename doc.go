@@ -1,6 +1,8 @@
 package datareader
 
 // Copyright 2015 Kerby Shedden
+//
+// SAS reader based on Python code copyright 2015 Jared Hobbs
 
 /*
 
@@ -14,7 +16,8 @@ Package datareader also includes a simple column-oriented data
 container called a Series, and a function that reads CSV files, infers
 the datatype of each column, and places them into an array of Series
 objects.  The SAS and Stata readers return the data as an array of
-Series objects.
+Series objects, corresponding to the columns of the SAS or Stata
+dataset.
 
 The SAS and Stata objects behave similarly, and both satisfy the
 Statfilereader interface.  Both readers can read a file by chunks

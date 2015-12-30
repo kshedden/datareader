@@ -2,12 +2,33 @@ package datareader
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 )
+
+func to_date_yyyymmdd(vec []float64) []time.Time {
+
+	n := len(vec)
+	rslt := make([]time.Time, n)
+
+	for i, x := range vec {
+		if math.IsNaN(x) {
+			continue
+		}
+		y := int(x)
+		day := y % 100
+		y = (y - day) / 100
+		month := y % 100
+		y = (y - month) / 100
+		year := y
+		rslt[i] = time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+	}
+
+	return rslt
+}
 
 func sas_base_test(fname_csv, fname_sas string) bool {
 
@@ -16,20 +37,22 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
 	}
+	defer f.Close()
 
 	rt := NewCSVReader(f)
 	rt.HasHeader = false
+	rt.TypeHintsName = map[string]string{"Column 1": "float64"}
 	dt, err := rt.Read(-1)
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
 	}
-
 	r, err := os.Open(filepath.Join("test_files", "data", fname_sas))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
 	}
+	defer r.Close()
 
 	sas, err := NewSAS7BDATReader(r)
 	if err != nil {
@@ -50,8 +73,6 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 		return false
 	}
 
-	base := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
-
 	for j := 0; j < ncol; j++ {
 		switch sas.ColumnFormats[j] {
 		default:
@@ -66,17 +87,22 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 				return false
 			}
 		case "MMDDYY":
-			vec := ds[j].Data().([]float64)
-			n := len(vec)
-			vect := dt[j].Data().([]float64)
+			base := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
+			sas_series, err := ds[j].date_from_duration(base, "days")
+			if err != nil {
+				return false
+			}
+			vec_sas := sas_series.Data().([]time.Time)
+			vec_txt := to_date_yyyymmdd(dt[j].Data().([]float64))
+			if len(vec_sas) != len(vec_txt) {
+				return false
+			}
+			n := len(vec_sas)
 			for i := 0; i < n; i++ {
-				t1 := base.Add(time.Duration(vec[i]) * 24 * time.Hour)
-				d := fmt.Sprintf("%8.0f", vect[i])
-				year, _ := strconv.Atoi(d[0:4])
-				month, _ := strconv.Atoi(d[4:6])
-				day, _ := strconv.Atoi(d[6:8])
-				t2 := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
-				if t1 != t2 {
+				if ds[j].Missing()[i] && dt[j].Missing()[i] {
+					continue
+				}
+				if vec_sas[i] != vec_txt[i] {
 					return false
 				}
 			}
@@ -86,7 +112,7 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 	return true
 }
 
-func TestSAS1(t *testing.T) {
+func TestSAS_no_compression(t *testing.T) {
 
 	r := sas_base_test("test1.csv", "test1_compression_no.sas7bdat")
 	if !r {
@@ -94,7 +120,7 @@ func TestSAS1(t *testing.T) {
 	}
 }
 
-func TestSAS2(t *testing.T) {
+func TestSAS_char_compression(t *testing.T) {
 
 	r := sas_base_test("test1.csv", "test1_compression_char.sas7bdat")
 	if !r {
@@ -102,10 +128,12 @@ func TestSAS2(t *testing.T) {
 	}
 }
 
-func TestSAS3(t *testing.T) {
+/*
+func TestSAS_binary_compression(t *testing.T) {
 
 	r := sas_base_test("test1.csv", "test1_compression_binary.sas7bdat")
 	if !r {
 		t.Fail()
 	}
 }
+*/

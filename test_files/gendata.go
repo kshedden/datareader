@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"path/filepath"
 	"math/rand"
 	"os"
 )
@@ -13,7 +14,7 @@ func file1() {
 
 	r := rand.New(rand.NewSource(99))
 
-	fid, err := os.Create("test1.csv")
+	fid, err := os.Create(filepath.Join("data", "test1.csv"))
 	if err != nil {
 		panic("Unable to open file.")
 	}
@@ -32,13 +33,29 @@ func file1() {
 		for j := 0; j < ncol; j++ {
 			switch j % 4 {
 			case 0:
-				rowdata[j] = fmt.Sprintf("%.3f", r.Float64())
+				if r.Float64() < 0.1 {
+					rowdata[j] = ""
+				} else {
+					rowdata[j] = fmt.Sprintf("%.3f", r.Float64())
+				}
 			case 1:
-				rowdata[j] = words[r.Int63n(4)]
+				if r.Float64() < 0.1 {
+					rowdata[j] = ""
+				} else {
+					rowdata[j] = words[r.Int63n(4)]
+				}
 			case 2:
-				rowdata[j] = fmt.Sprintf("%d", r.Int63n(100))
+				if r.Float64() < 0.1 {
+					rowdata[j] = ""
+				} else {
+					rowdata[j] = fmt.Sprintf("%d", r.Int63n(100))
+				}
 			case 3:
-				rowdata[j] = dates[r.Int63n(4)]
+				if r.Float64() < 0.1 {
+					rowdata[j] = ""
+				} else {
+					rowdata[j] = dates[r.Int63n(4)]
+				}
 			}
 		}
 

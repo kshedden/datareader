@@ -2,7 +2,6 @@ package datareader
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -106,9 +105,10 @@ func TestCSV4(t *testing.T) {
 	}
 
 	expected := make([]*Series, 3)
-	expected[0], _ = NewSeries("", []float64{math.NaN(), 1, 4, 7}, nil)
-	expected[1], _ = NewSeries("", []float64{math.NaN(), 2, 5, 8}, nil)
-	expected[2], _ = NewSeries("", []float64{math.NaN(), 3, 6, 9}, nil)
+	miss := []bool{true, false, false, false}
+	expected[0], _ = NewSeries("", []float64{0, 1, 4, 7}, miss)
+	expected[1], _ = NewSeries("", []float64{0, 2, 5, 8}, miss)
+	expected[2], _ = NewSeries("", []float64{0, 3, 6, 9}, miss)
 
 	if !SeriesArray(data).AllEqual(expected) {
 		t.Fail()

@@ -195,6 +195,10 @@ func (ser *Series) Length() int {
 // ignored and this is equivalent to testing equality.
 func (ser *Series) AllClose(other *Series, tol float64) bool {
 
+	if ser.length != other.length {
+		return false
+	}
+
 	if (ser.missing != nil) && (other.missing != nil) {
 		for j := 0; j < ser.length; j++ {
 			if ser.missing[j] != other.missing[j] {
@@ -218,14 +222,19 @@ func (ser *Series) AllClose(other *Series, tol float64) bool {
 
 	switch ser.data.(type) {
 	default:
-		panic("Unknown type in Series.AllClose")
+		panic(fmt.Sprintf("Unknown type %T in Series.AllClose", ser.data))
 	case []float64:
-		for j := 0; j < ser.length; j++ {
-			c := cmiss(j)
+		u := ser.data.([]float64)
+		v, ok := other.data.([]float64)
+		if !ok {
+			return false
+		}
+		for i := 0; i < ser.length; i++ {
+			c := cmiss(i)
 			if c == 0 {
 				return false
 			}
-			if (c == 1) && (math.Abs(ser.data.([]float64)[j]-other.data.([]float64)[j]) > tol) {
+			if (c == 1) && (math.Abs(u[i]-v[i]) > tol) {
 				return false
 			}
 		}
@@ -297,6 +306,21 @@ func (ser *Series) AllClose(other *Series, tol float64) bool {
 				return false
 			}
 			if (c == 1) && (ser.data.([]string)[j] != other.data.([]string)[j]) {
+				return false
+			}
+		}
+	case []time.Time:
+		u := ser.data.([]time.Time)
+		v, ok := other.data.([]time.Time)
+		if !ok {
+			return false
+		}
+		for j := 0; j < ser.length; j++ {
+			c := cmiss(j)
+			if c == 0 {
+				return false
+			}
+			if (c == 1) && (u[j] != v[j]) {
 				return false
 			}
 		}
@@ -392,4 +416,37 @@ func (ser SeriesArray) AllClose(other []*Series, tol float64) bool {
 // the two arrays of Series objects are identical.
 func (ser SeriesArray) AllEqual(other []*Series) bool {
 	return ser.AllClose(other, 0.0)
+}
+
+func (ser *Series) date_from_duration(base time.Time, units string) (*Series, error) {
+
+	n := ser.Length()
+
+	var miss []bool
+	if ser.missing != nil {
+		miss := make([]bool, n)
+		copy(miss, ser.missing)
+	}
+
+	td, err := upcast_numeric(ser.data)
+	if err != nil {
+		return nil, err
+	}
+
+	newdate := make([]time.Time, n)
+	for i := 0; i < n; i++ {
+		switch units {
+		default:
+			return nil, errors.New("unknown time unit duration")
+		case "days":
+			newdate[i] = base.Add(time.Hour * time.Duration(24*td[i]))
+		}
+
+	}
+
+	rslt, err := NewSeries(ser.Name, newdate, miss)
+	if err != nil {
+		return nil, err
+	}
+	return rslt, nil
 }

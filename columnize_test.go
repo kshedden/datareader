@@ -83,6 +83,7 @@ func columnize_base(fname, mode string) [16]byte {
 		if err != nil {
 			panic(err)
 		}
+		defer g.Close()
 		ba, err := ioutil.ReadAll(g)
 		if err != nil {
 			panic(err)
@@ -104,6 +105,7 @@ func Test_columnize_1(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	defer cf.Close()
 
 	var checksum map[string][]byte
 	b, err := ioutil.ReadAll(cf)

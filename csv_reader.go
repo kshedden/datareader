@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"strconv"
+	"strings"
 )
 
 // A CSVReader specifies how a data set in CSV format can be read from
@@ -30,6 +30,9 @@ type CSVReader struct {
 
 	// The data type for each column.
 	data_types []string
+
+	// Has the init method been run yet?
+	init_run bool
 
 	// The reader object provided by the caller.
 	reader *io.ReadSeeker
@@ -115,10 +118,9 @@ func (rdr *CSVReader) sniff_types() error {
 		if t != "infer" {
 			rdr.data_types[j] = t
 		} else {
-			n_floats := count_floats(data)
-			n := len(data)
+			n_floats, n_obs := count_floats(data)
 
-			if n_floats[j] == n {
+			if (n_floats[j] == n_obs[j]) && (n_obs[j] > 0) {
 				rdr.data_types[j] = "float64"
 			} else {
 				rdr.data_types[j] = "string"
@@ -179,16 +181,21 @@ func (rdr *CSVReader) init() error {
 // directly.
 func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 
-	rdr.init()
+	if !rdr.init_run {
+		rdr.init()
+		rdr.init_run = true
+	}
 
 	data_array := make([]interface{}, len(rdr.ColumnNames))
+	miss := make([][]bool, len(rdr.ColumnNames))
 	for j := range rdr.ColumnNames {
 		switch rdr.data_types[j] {
 		case "float64":
-			data_array[j] = make([]float64, 0, 1000)
+			data_array[j] = make([]float64, 0, 100)
 		case "string":
-			data_array[j] = make([]string, 0, 1000)
+			data_array[j] = make([]string, 0, 100)
 		}
+		miss[j] = make([]bool, 0, 100)
 	}
 
 	rdr.init()
@@ -197,34 +204,52 @@ func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 		return nil, err
 	}
 
-	dlines, _ := c.ReadAll()
+	dlines, err := c.ReadAll()
+	if err != nil {
+		return nil, err
+	}
 
 	num_read := 0
-	for _, line := range dlines {
-		for j := range rdr.ColumnNames {
-			switch rdr.data_types[j] {
-			case "float64":
+	for j := range rdr.ColumnNames {
+		num_read = 0
+		switch rdr.data_types[j] {
+		case "float64":
+			da := make([]float64, 0, 10)
+			num_read = 0
+			for i, line := range dlines {
+				num_read++
 				x, err := strconv.ParseFloat(line[j], 64)
 				if err != nil {
-					x = math.NaN()
+					miss[j] = append(miss[j], true)
+				} else {
+					miss[j] = append(miss[j], false)
 				}
-				data_array[j] = append(data_array[j].([]float64), x)
-			case "string":
-				data_array[j] = append(data_array[j].([]string), line[j])
+				da = append(da, x)
+				if (lines >= 0) && (i >= lines) {
+					break
+				}
 			}
-		}
-
-		num_read += 1
-		if (lines >= 0) && (num_read >= lines) {
-			break
+			data_array[j] = da
+		case "string":
+			da := make([]string, 0, 10)
+			num_read = 0
+			for i, line := range dlines {
+				num_read++
+				da = append(da, line[j])
+				miss[j] = append(miss[j], false)
+				if (lines >= 0) && (i >= lines) {
+					break
+				}
+			}
+			data_array[j] = da
 		}
 	}
 
 	data_series := make([]*Series, len(data_array))
 	for j := 0; j < len(data_array); j++ {
-		name := fmt.Sprintf("col%d", j)
+		name := fmt.Sprintf("Column %d", j+1)
 		var err error
-		data_series[j], err = NewSeries(name, data_array[j], nil)
+		data_series[j], err = NewSeries(name, data_array[j], miss[j])
 		if err != nil {
 			panic(fmt.Sprintf("%v", err))
 		}
@@ -234,12 +259,18 @@ func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 
 // count_floats returns the number of elements of each column of array
 // that can be converted to float64 type.
-func count_floats(array [][]string) []int {
+func count_floats(array [][]string) ([]int, []int) {
 
 	num_floats := make([]int, len(array[0]))
+	num_obs := make([]int, len(array[0]))
 
 	for _, x := range array {
 		for j, y := range x {
+			y = strings.TrimSpace(y)
+			if len(y) == 0 {
+				continue
+			}
+			num_obs[j] += 1
 			_, err := strconv.ParseFloat(y, 64)
 			if err == nil {
 				num_floats[j] += 1
@@ -247,5 +278,5 @@ func count_floats(array [][]string) []int {
 		}
 	}
 
-	return num_floats
+	return num_floats, num_obs
 }

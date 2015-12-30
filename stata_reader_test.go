@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	//"time"
 )
 
 func stata_base_test(fname_csv, fname_stata string) bool {
@@ -14,6 +16,7 @@ func stata_base_test(fname_csv, fname_stata string) bool {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
 	}
+	defer f.Close()
 
 	rt := NewCSVReader(f)
 	rt.HasHeader = false
@@ -29,6 +32,7 @@ func stata_base_test(fname_csv, fname_stata string) bool {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
 	}
+	defer r.Close()
 	stata.InsertCategoryLabels = false
 
 	ds, err := stata.Read(-1)
@@ -40,8 +44,22 @@ func stata_base_test(fname_csv, fname_stata string) bool {
 		ds[j].UpcastNumeric()
 	}
 
-	if !SeriesArray(ds).AllClose(dt, 1e-6) {
-		return false
+	formats := stata.Formats
+	for j := 0; j < len(ds); j++ {
+		if strings.Contains(formats[j], "%td") {
+			ti := to_date_yyyymmdd(dt[j].Data().([]float64))
+			dt[j], err = NewSeries(dt[j].Name, ti, dt[j].Missing())
+			if err != nil {
+				os.Stderr.Write([]byte(fmt.Sprintf("%v\n", err)))
+				return false
+			}
+		}
+	}
+
+	for j := 0; j < len(ds); j++ {
+		if !ds[j].AllClose(dt[j], 1e-6) {
+			return false
+		}
 	}
 
 	return true

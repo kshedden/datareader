@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"time"
 )
@@ -397,7 +398,7 @@ func rle_decompress(offset int, length int, result_length int, page []byte) []by
 	return result
 }
 
-func bytes_to_bits(src []byte, offset int, length int) []byte {
+func bytes_to_bits(src []byte, offset, length int) []byte {
 	result := make([]byte, length*8)
 	for i := 0; i < length; i++ {
 		b := src[offset+i]
@@ -766,6 +767,11 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 			vec := make([]float64, n)
 			buf := bytes.NewReader(sas.bytechunk[j][0 : 8*n])
 			binary.Read(buf, sas.ByteOrder, &vec)
+			for i := 0; i < n; i++ {
+				if math.IsNaN(vec[i]) {
+					miss[i] = true
+				}
+			}
 			rslt[j], _ = NewSeries(name, vec, miss)
 		case string_column_type:
 			if sas.TrimStrings {

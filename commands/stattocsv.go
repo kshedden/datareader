@@ -100,6 +100,7 @@ func main() {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return
 	}
+	defer f.Close()
 
 	fl := strings.ToLower(fname)
 	filetype := ""

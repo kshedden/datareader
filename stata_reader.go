@@ -12,20 +12,14 @@ import (
 )
 
 var supported_dta_versions = []int{114, 115, 117, 118}
-
 var row_count_length = map[int]int{114: 4, 115: 4, 117: 4, 118: 8}
-
 var nvar_length = map[int]int{114: 2, 115: 2, 117: 2, 118: 2}
-
 var dataset_label_length = map[int]int{117: 1, 118: 2}
-
 var value_label_length = map[int]int{117: 33, 118: 129}
-
 var vo_length = map[int]int{117: 8, 118: 12}
 
-// A StataReader reads Stata dta data files.  Currently versions 115,
-// 117, and 118 of Stata dta files can be read.  Not all fields in the
-// StataReader struct are applicable to all file formats.
+// A StataReader reads Stata dta data files.  Currently dta format
+// versions 115, 117, and 118 can be read.
 //
 // The Read method reads and returns the data.  Several fields of the
 // StataReader struct may also be of interest.
@@ -823,6 +817,8 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 
 	for j, t := range rdr.var_types {
 		switch {
+		default:
+			return nil, errors.New(fmt.Sprintf("unknown variable type: %v", t))
 		case t <= 2045:
 			data[j] = make([]string, nval)
 		case t == 32768:
@@ -870,10 +866,8 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 					// The STRL pointer is 2 byte integer followed by 6 byte integer
 					// or 4 + 4 depending on the version
 					binary.Read(rdr.reader, rdr.ByteOrder, buf8)
-					fmt.Printf("VO: %v\n", buf8)
 					var ptr uint64
 					binary.Read(bytes.NewReader(buf8), rdr.ByteOrder, &ptr)
-					fmt.Printf("ptr=%v\n", ptr)
 					data[j].([]string)[i] = rdr.Strls[ptr]
 				} else {
 					binary.Read(rdr.reader, rdr.ByteOrder, &(data[j].([]uint64)[i]))
