@@ -7,6 +7,9 @@ package datareader
 //
 // See also:
 // https://cran.r-project.org/web/packages/sas7bdat/vignettes/sas7bdat.pdf
+//
+// Binary data compression:
+// http://collaboration.cmc.ec.gc.ca/science/rpn/biblio/ddj/Website/articles/CUJ/1992/9210/ross/ross.htm
 
 import (
 	"bytes"
@@ -410,9 +413,10 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 
 	var ctrl_bits uint16
 	var ctrl_mask uint16
-	var cmd uint16
+	var cmd uint8
+	var ofs uint16
+	var cnt uint16
 	var inbuff_pos int
-	var ofs uint8
 	outbuff := make([]byte, 0, result_length)
 
 	for inbuff_pos < len(inbuff) {
@@ -430,12 +434,13 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 			continue
 		}
 
-		cmd = uint16((inbuff[inbuff_pos] >> 4) & 0x00F)
-		cnt := inbuff[inbuff_pos] & 0x00F
+		cmd = (inbuff[inbuff_pos] >> 4) & 0x0F
+		cnt = uint16(inbuff[inbuff_pos] & 0x0F)
 		inbuff_pos++
 
 		switch cmd {
 		case 0: /* short rle */
+			//os.Stderr.WriteString("RDC0\n")
 			cnt += 3
 			for k := 0; k < int(cnt); k++ {
 				outbuff = append(outbuff, inbuff[inbuff_pos])
@@ -443,7 +448,8 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 			inbuff_pos++
 			break
 		case 1: /* long /rle */
-			cnt += (inbuff[inbuff_pos] << 4)
+			//os.Stderr.WriteString("RDC1\n")
+			cnt += uint16((inbuff[inbuff_pos] << 4))
 			cnt += 19
 			inbuff_pos++
 			for k := 0; k < int(cnt); k++ {
@@ -452,18 +458,20 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 			inbuff_pos++
 			break
 		case 2: /* long pattern */
+			//os.Stderr.WriteString("RDC2\n")
 			ofs := cnt + 3
-			ofs += (inbuff[inbuff_pos] << 4)
+			ofs += uint16((inbuff[inbuff_pos] << 4))
 			inbuff_pos++
-			cnt = inbuff[inbuff_pos]
+			cnt = uint16(inbuff[inbuff_pos])
 			inbuff_pos++
 			cnt += 16
 			tmp := outbuff[len(outbuff)-int(ofs) : len(outbuff)-int(ofs)+int(cnt)]
 			outbuff = append(outbuff, tmp...)
 			break
 		default: /* short pattern */
+			//os.Stderr.WriteString("RDCd\n")
 			ofs = cnt + 3
-			ofs += (inbuff[inbuff_pos] << 4)
+			ofs += uint16(inbuff[inbuff_pos] << 4)
 			inbuff_pos++
 			tmp := outbuff[len(outbuff)-int(ofs) : len(outbuff)-int(ofs)+int(cmd)]
 			outbuff = append(outbuff, tmp...)

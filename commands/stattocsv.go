@@ -115,10 +115,12 @@ func main() {
 
 	var rdr datareader.Statfilereader
 	if filetype == "sas" {
-		rdr, err = datareader.NewSAS7BDATReader(f)
+		sas, err := datareader.NewSAS7BDATReader(f)
 		if err != nil {
 			panic(err)
 		}
+		sas.TrimStrings = true
+		rdr = sas
 	} else if filetype == "stata" {
 		stata, err := datareader.NewStataReader(f)
 		if err != nil {
