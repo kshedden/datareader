@@ -78,11 +78,38 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 		default:
 			os.Stderr.WriteString(fmt.Sprintf("unknown format for column %d: %s\n", j, sas.ColumnFormats[j]))
 		case "":
-			if !ds[j].AllEqual(dt[j]) {
-				a := ds[j].Data().([]string)
-				b := dt[j].Data().([]string)
-				for i := 0; i < ds[j].Length(); i++ {
-					fmt.Printf("%v %v %v %v\n", a[i], b[i], len(a[i]), len(b[i]))
+			if !ds[j].AllClose(dt[j], 1e-5) {
+				fmt.Printf("%T %T\n", ds[j].Data(), dt[j].Data())
+				switch ds[j].Data().(type) {
+				default:
+					panic("unknown types")
+				case []string:
+					a := ds[j].Data().([]string)
+					b := dt[j].Data().([]string)
+					for i := 0; i < ds[j].Length(); i++ {
+						if a[i] != b[i] {
+							fmt.Printf("%v :%v: :%v: %v %v\n", i, a[i], b[i], len(a[i]), len(b[i]))
+						}
+					}
+				case []float64:
+					a := ds[j].Data().([]float64)
+					b := dt[j].Data().([]float64)
+					for i := 0; i < ds[j].Length(); i++ {
+						if ds[j].Missing()[i] && dt[j].Missing()[i] {
+							continue
+						}
+						aa := fmt.Sprintf("%v", a[i])
+						if ds[j].Missing()[i] {
+							aa = ""
+						}
+						bb := fmt.Sprintf("%v", b[i])
+						if ds[j].Missing()[i] {
+							bb = ""
+						}
+						if aa != bb {
+							fmt.Printf("%d %v %v\n", i, aa, bb)
+						}
+					}
 				}
 				return false
 			}
@@ -128,7 +155,6 @@ func TestSAS_char_compression(t *testing.T) {
 	}
 }
 
-/*
 func TestSAS_binary_compression(t *testing.T) {
 
 	r := sas_base_test("test1.csv", "test1_compression_binary.sas7bdat")
@@ -136,4 +162,3 @@ func TestSAS_binary_compression(t *testing.T) {
 		t.Fail()
 	}
 }
-*/

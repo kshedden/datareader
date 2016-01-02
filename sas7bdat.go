@@ -13,10 +13,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	xencoding "golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/charmap"
 	"io"
 	"math"
+	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // SAS7BDAT represents a SAS data file in SAS7BDAT format.
@@ -70,6 +74,8 @@ type SAS7BDAT struct {
 	// The compression mode of the file
 	Compression string
 
+	encoding                             string
+	textdecoder                          *xencoding.Decoder
 	column_names                         []string
 	path                                 string
 	buf                                  []byte
@@ -398,181 +404,78 @@ func rle_decompress(offset int, length int, result_length int, page []byte) []by
 	return result
 }
 
-func bytes_to_bits(src []byte, offset, length int) []byte {
-	result := make([]byte, length*8)
-	for i := 0; i < length; i++ {
-		b := src[offset+i]
-		for bit := 0; bit < 8; bit++ {
-			if (b & (1 << uint(bit))) != 0 {
-				result[8*i+(7-bit)] = 1
+func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
+
+	inbuff = inbuff[offset : offset+length]
+
+	var ctrl_bits uint16
+	var ctrl_mask uint16
+	var cmd uint16
+	var inbuff_pos int
+	var ofs uint8
+	outbuff := make([]byte, 0, result_length)
+
+	for inbuff_pos < len(inbuff) {
+		ctrl_mask = ctrl_mask >> 1
+		if ctrl_mask == 0 {
+			br := bytes.NewReader(inbuff[inbuff_pos : inbuff_pos+2])
+			binary.Read(br, binary.BigEndian, &ctrl_bits)
+			inbuff_pos += 2
+			ctrl_mask = 0x8000
+		}
+
+		if (ctrl_bits & ctrl_mask) == 0 {
+			outbuff = append(outbuff, inbuff[inbuff_pos])
+			inbuff_pos++
+			continue
+		}
+
+		cmd = uint16((inbuff[inbuff_pos] >> 4) & 0x00F)
+		cnt := inbuff[inbuff_pos] & 0x00F
+		inbuff_pos++
+
+		switch cmd {
+		case 0: /* short rle */
+			cnt += 3
+			for k := 0; k < int(cnt); k++ {
+				outbuff = append(outbuff, inbuff[inbuff_pos])
 			}
+			inbuff_pos++
+			break
+		case 1: /* long /rle */
+			cnt += (inbuff[inbuff_pos] << 4)
+			cnt += 19
+			inbuff_pos++
+			for k := 0; k < int(cnt); k++ {
+				outbuff = append(outbuff, inbuff[inbuff_pos])
+			}
+			inbuff_pos++
+			break
+		case 2: /* long pattern */
+			ofs := cnt + 3
+			ofs += (inbuff[inbuff_pos] << 4)
+			inbuff_pos++
+			cnt = inbuff[inbuff_pos]
+			inbuff_pos++
+			cnt += 16
+			tmp := outbuff[len(outbuff)-int(ofs) : len(outbuff)-int(ofs)+int(cnt)]
+			outbuff = append(outbuff, tmp...)
+			break
+		default: /* short pattern */
+			ofs = cnt + 3
+			ofs += (inbuff[inbuff_pos] << 4)
+			inbuff_pos++
+			tmp := outbuff[len(outbuff)-int(ofs) : len(outbuff)-int(ofs)+int(cmd)]
+			outbuff = append(outbuff, tmp...)
+			break
 		}
 	}
-	return result
-}
 
-func is_short_rle(b byte) bool {
-	for _, v := range []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05} {
-		if b == v {
-			return true
-		}
+	if len(outbuff) != result_length {
+		os.Stderr.WriteString(fmt.Sprintf("RDC: %v != %v\n", len(outbuff), result_length))
 	}
-	return false
-}
 
-func is_single_byte_marker(b byte) bool {
-	for _, v := range []byte{0x02, 0x04, 0x06, 0x08, 0x0A} {
-		if b == v {
-			return true
-		}
-	}
-	return false
-}
-
-func is_two_bytes_marker(b []byte) bool {
-	if len(b) != 2 {
-		return false
-	}
-	return ((b[0] >> 4) & 0xF) > 2
-}
-
-func is_three_bytes_marker(b []byte) bool {
-	if len(b) != 3 {
-		return false
-	}
-	flag := (b[0] >> 4) & 0xF
-	return (flag == 1) || (flag == 2)
-}
-
-func get_length_of_rle_pattern(b byte) int {
-	if b <= 0x05 {
-		return int(b) + 3
-	}
-	return 0
-}
-
-func get_length_of_one_byte_pattern(b byte) int {
-	if is_single_byte_marker(b) {
-		return int(b) + 14
-	}
-	return 0
-}
-
-func get_length_of_two_bytes_pattern(b []byte) int {
-	return int((b[0] >> 4) & 0xF)
-}
-
-func get_length_of_three_bytes_pattern(p_type int, b []byte) int {
-	if p_type == 1 {
-		return int(19 + (b[0] & 0xF) + (b[1] * 16))
-	} else if p_type == 2 {
-		return int(b[2] + 16)
-	}
-	return 0
-}
-
-func get_offset_for_one_byte_pattern(b byte) int {
-	if b == 0x08 {
-		return 24
-	} else if b == 0x0A {
-		return 40
-	}
-	return 0
-}
-
-func get_offset_for_two_bytes_pattern(b []byte) int {
-	return int(3 + (b[0] & 0xF) + (b[1] * 16))
-}
-
-func get_offset_for_three_bytes_pattern(b []byte) int {
-	return int(3 + (b[0] & 0xF) + (b[1] * 16))
-}
-
-func clone_byte(b byte, length int) []byte {
-	out := make([]byte, length)
-	for k := 0; k < length; k++ {
-		out[k] = b
-	}
-	return out
-}
-
-// rdc_decompress decompresses data using the Ross Data Compression
-// algorithm
-func rdc_decompress(offset, length, result_length int, page []byte) []byte {
-	src_row := page[offset : offset+length]
-	out_row := make([]byte, 0, 1024)
-	src_offset := 0
-	for src_offset < len(src_row)-2 {
-		prefix_bits := bytes_to_bits(src_row, src_offset, 2)
-		src_offset += 2
-		for bit_index := 0; bit_index < 16; bit_index++ {
-			if src_offset >= len(src_row) {
-				break
-			}
-			if prefix_bits[bit_index] == 0 {
-				out_row = append(out_row, src_row[src_offset])
-				src_offset++
-				continue
-			}
-			marker_byte := src_row[src_offset]
-			if src_offset+1 >= len(src_row) {
-				break
-			}
-			next_byte := src_row[src_offset+1]
-			if is_short_rle(marker_byte) {
-				length = get_length_of_rle_pattern(marker_byte)
-				for j := 0; j < length; j++ {
-					out_row = append(out_row, next_byte)
-				}
-				src_offset += 2
-				continue
-			} else if is_single_byte_marker(marker_byte) &&
-				((next_byte & 0xF0) != ((next_byte << 4) & 0xF0)) {
-				length = get_length_of_one_byte_pattern(marker_byte)
-				back_offset := get_offset_for_one_byte_pattern(marker_byte)
-				start := len(out_row) - back_offset
-				end := start + length
-				out_row = append(out_row, out_row[start:end]...)
-				src_offset++
-				continue
-			}
-			two_bytes_marker := src_row[src_offset : src_offset+2]
-			if is_two_bytes_marker(two_bytes_marker) {
-				length := get_length_of_two_bytes_pattern(two_bytes_marker)
-				back_offset := get_offset_for_two_bytes_pattern(two_bytes_marker)
-				start := len(out_row) - back_offset
-				end := start + length
-				out_row = append(out_row, out_row[start:end]...)
-				src_offset += 2
-				continue
-			}
-			three_bytes_marker := src_row[src_offset : src_offset+3]
-			if is_three_bytes_marker(three_bytes_marker) {
-				p_type := int((three_bytes_marker[0] >> 4) & 0x0F)
-				back_offset := 0
-				if p_type == 2 {
-					back_offset = get_offset_for_three_bytes_pattern(three_bytes_marker)
-				}
-				length := get_length_of_three_bytes_pattern(p_type, three_bytes_marker)
-				if p_type == 1 {
-					for j := 0; j < length; j++ {
-						out_row = append(out_row, three_bytes_marker[2])
-					}
-				} else {
-					start := len(out_row) - back_offset
-					end := start + length
-					out_row = append(out_row, out_row[start:end]...)
-				}
-				src_offset += 3
-				continue
-			} else {
-				// do something else here
-				panic(
-					fmt.Sprintf("unknown marker %s at offset %s", src_row[src_offset], src_offset))
-			}
-		}
-	}
-	return out_row
+	return outbuff
 }
 
 func (sas *SAS7BDAT) get_decompressor() func(int, int, int, []byte) []byte {
@@ -599,7 +502,13 @@ func NewSAS7BDATReader(r io.ReadSeeker) (*SAS7BDAT, error) {
 		return nil, err
 	}
 	sas.cached_page = make([]byte, sas.properties.page_length)
-	sas.parse_metadata()
+	err = sas.parse_metadata()
+	if err != nil {
+		return nil, err
+	}
+
+	sas.textdecoder = charmap.Windows1250.NewDecoder()
+
 	return sas, nil
 }
 
@@ -775,15 +684,45 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 			rslt[j], _ = NewSeries(name, vec, miss)
 		case string_column_type:
 			if sas.TrimStrings {
-				for i := 0; i < n; i++ {
-					sas.stringchunk[j][i] = strings.TrimRight(sas.stringchunk[j][i], " ")
-				}
+				sas.trim_strings(n, j)
 			}
+			//sas.decode_strings(n, j)
 			rslt[j], _ = NewSeries(name, sas.stringchunk[j][0:n], miss)
 		}
 	}
 
 	return rslt
+}
+
+func (sas *SAS7BDAT) trim_strings(n, j int) {
+	for i := 0; i < n; i++ {
+		bs := []byte(sas.stringchunk[j][i])
+		newbs := make([]byte, 0)
+		for {
+			r, size := utf8.DecodeRune(bs)
+			if r == utf8.RuneError || r == '\u0000' || r == '\u0020' {
+				break
+			}
+			newbs = append(newbs, bs[0:size]...)
+			bs = bs[size:]
+		}
+		sas.stringchunk[j][i] = string(newbs)
+	}
+}
+
+func (sas *SAS7BDAT) decode_strings(n, j int) {
+	for i := 0; i < n; i++ {
+		s, err := sas.textdecoder.String(sas.stringchunk[j][i])
+		if j == 1 && i == 7 {
+			os.Stderr.WriteString(fmt.Sprintf("%v %v\n", s, sas.stringchunk[j][i]))
+			os.Stderr.WriteString(fmt.Sprintf("%v %v\n", []byte(s), []byte(sas.stringchunk[j][i])))
+			panic("")
+		}
+		if err != nil {
+			panic(err)
+		}
+		sas.stringchunk[j][i] = s
+	}
 }
 
 func (sas *SAS7BDAT) readline() (error, bool) {
@@ -929,6 +868,7 @@ func (sas *SAS7BDAT) setProperties() error {
 	}
 	prop.page_bit_offset = page_bit_offset_x86
 	prop.subheader_pointer_length = subheader_pointer_length_x86
+	prop.int_length = 4
 	if string(sas.buf[0:align_1_length]) == string(u64_byte_checker_value) {
 		align2 = align_2_value
 		sas.U64 = true
@@ -1002,7 +942,7 @@ func (sas *SAS7BDAT) setProperties() error {
 	sas.file.Read(v)
 	sas.cached_page = append(sas.cached_page, v...)
 	if len(sas.cached_page) != prop.header_length {
-		return errors.New("The header is too short (is this a sas7bdat file?)")
+		return errors.New("The SAS7BDAT file appears to be truncated.")
 	}
 
 	prop.page_length, err = sas.read_int(page_size_offset+align1, page_size_length)
@@ -1024,26 +964,26 @@ func (sas *SAS7BDAT) setProperties() error {
 	if err != nil {
 		return errors.New("Unable to read SAS server type value.")
 	}
-	sas.ServerType = string(sas.buf[0:sas_server_type_length])
+	sas.ServerType = string(bytes.TrimRight(sas.buf[0:sas_server_type_length], " \000"))
 
 	err = sas.read_bytes(os_version_number_offset+total_align, os_version_number_length)
 	if err != nil {
 		return errors.New("Unable to read version number.")
 	}
-	sas.OSType = string(sas.buf[0:os_version_number_length])
+	sas.OSType = string(bytes.TrimRight(sas.buf[0:os_version_number_length], "\000"))
 
 	err = sas.read_bytes(os_name_offset+total_align, os_name_length)
 	if err != nil {
 		return errors.New("Unable to read OS name.")
 	}
 	if sas.buf[0] != 0 {
-		sas.OSName = string(sas.buf[0:os_name_length])
+		sas.OSName = string(bytes.TrimRight(sas.buf[0:os_name_length], " \000"))
 	} else {
 		err = sas.read_bytes(os_maker_offset+total_align, os_maker_length)
 		if err != nil {
 			return errors.New("Unable to read OS maker value.")
 		}
-		sas.OSName = string(sas.buf[0:os_maker_length])
+		sas.OSName = string(bytes.TrimRight(sas.buf[0:os_maker_length], " \000"))
 	}
 
 	return nil
@@ -1250,6 +1190,11 @@ func (sas *SAS7BDAT) process_byte_array_with_data(offset, length int) error {
 				}
 			}
 		} else {
+			if sas.current_row_in_file_index == 7 && j == 1 {
+				os.Stderr.WriteString(fmt.Sprintf("%v %v %v\n", len(source), start, end))
+				os.Stderr.WriteString(fmt.Sprintf("%v\n", source[start-10:end+10]))
+				os.Stderr.WriteString(fmt.Sprintf("temp=%v %v\n", temp, string(temp)))
+			}
 			sas.stringchunk[j][sas.current_row_in_chunk_index] = string(temp)
 		}
 	}
@@ -1282,6 +1227,7 @@ func check_magic_number(b []byte) bool {
 
 func (sas *SAS7BDAT) process_rowsize_subheader(offset, length int) error {
 
+	fmt.Printf("process rowsize subheader\n")
 	int_len := sas.properties.int_length
 	lcs_offset := offset
 	lcp_offset := offset
@@ -1329,12 +1275,19 @@ func (sas *SAS7BDAT) process_rowsize_subheader(offset, length int) error {
 
 func (sas *SAS7BDAT) process_columnsize_subheader(offset, length int) error {
 
+	fmt.Printf("process columnsize subheader\n")
 	int_len := sas.properties.int_length
 	offset += int_len
-	sas.properties.column_count, _ = sas.read_int(offset, int_len)
+	var err error
+	sas.properties.column_count, err = sas.read_int(offset, int_len)
+	if err != nil {
+		return err
+	}
 	if sas.properties.col_count_p1+sas.properties.col_count_p2 !=
 		sas.properties.column_count {
-		return errors.New("column count mismatch")
+		os.Stderr.WriteString(fmt.Sprintf("Warning: column count mismatch (%d + %d != %d)\n",
+			sas.properties.col_count_p1, sas.properties.col_count_p2,
+			sas.properties.column_count))
 	}
 	return nil
 }
@@ -1449,6 +1402,7 @@ func (sas *SAS7BDAT) process_columnlist_subheader(offset, length int) error {
 
 func (sas *SAS7BDAT) process_columnattributes_subheader(offset, length int) error {
 
+	fmt.Printf("column attributes subheader\n")
 	int_len := sas.properties.int_length
 	column_attributes_vectors_count := (length - 2*int_len - 12) / (int_len + 8)
 	for i := 0; i < column_attributes_vectors_count; i++ {
