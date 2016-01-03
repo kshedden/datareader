@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -300,12 +301,17 @@ func (ser *Series) AllClose(other *Series, tol float64) bool {
 			}
 		}
 	case []string:
+		u := ser.data.([]string)
+		v, ok := other.data.([]string)
+		if !ok {
+			return false
+		}
 		for j := 0; j < ser.length; j++ {
 			c := cmiss(j)
 			if c == 0 {
 				return false
 			}
-			if (c == 1) && (ser.data.([]string)[j] != other.data.([]string)[j]) {
+			if (c == 1) && (u[j] != v[j]) {
 				return false
 			}
 		}
@@ -335,18 +341,25 @@ func (ser *Series) AllEqual(other *Series) bool {
 
 // UpcastNumeric converts in-place all numeric type variables to
 // float64 values.  Non-numeric data is not affected.
-func (ser *Series) UpcastNumeric() {
+func (ser *Series) UpcastNumeric() *Series {
+
+	n := ser.Length()
+	cmiss := ser.missing
+	if cmiss != nil {
+		cmiss = make([]bool, n)
+		copy(cmiss, ser.missing)
+	}
 
 	switch ser.data.(type) {
 
 	default:
 		panic(fmt.Sprintf("unknown data type: %T\n", ser.data))
 	case []float64:
-		// do nothing
+		return ser
 	case []string:
-		// do nothing
+		return ser
 	case []time.Time:
-		// do nothing
+		return ser
 	case []float32:
 		d := ser.data.([]float32)
 		n := len(d)
@@ -354,7 +367,8 @@ func (ser *Series) UpcastNumeric() {
 		for i := 0; i < n; i++ {
 			a[i] = float64(d[i])
 		}
-		ser.data = a
+		s, _ := NewSeries(ser.Name, a, cmiss)
+		return s
 	case []int64:
 		d := ser.data.([]int64)
 		n := len(d)
@@ -362,7 +376,8 @@ func (ser *Series) UpcastNumeric() {
 		for i := 0; i < n; i++ {
 			a[i] = float64(d[i])
 		}
-		ser.data = a
+		s, _ := NewSeries(ser.Name, a, cmiss)
+		return s
 	case []int32:
 		d := ser.data.([]int32)
 		n := len(d)
@@ -371,6 +386,8 @@ func (ser *Series) UpcastNumeric() {
 			a[i] = float64(d[i])
 		}
 		ser.data = a
+		s, _ := NewSeries(ser.Name, a, cmiss)
+		return s
 	case []int16:
 		d := ser.data.([]int16)
 		n := len(d)
@@ -379,6 +396,8 @@ func (ser *Series) UpcastNumeric() {
 			a[i] = float64(d[i])
 		}
 		ser.data = a
+		s, _ := NewSeries(ser.Name, a, cmiss)
+		return s
 	case []int8:
 		d := ser.data.([]int8)
 		n := len(d)
@@ -387,6 +406,40 @@ func (ser *Series) UpcastNumeric() {
 			a[i] = float64(d[i])
 		}
 		ser.data = a
+		s, _ := NewSeries(ser.Name, a, cmiss)
+		return s
+	}
+}
+
+// ForceNumeric converts string values to float64 values, creating
+// missing values where the conversion is not possible.  If the data
+// is not string type, it is unaffected.
+func (ser *Series) ForceNumeric() *Series {
+
+	n := ser.length
+	cmiss := make([]bool, n)
+	if ser.missing != nil {
+		copy(cmiss, ser.missing)
+	}
+
+	switch ser.data.(type) {
+	default:
+		return ser
+	case []string:
+		x := make([]float64, n)
+		y := ser.data.([]string)
+		for i := 0; i < n; i++ {
+			if !cmiss[i] {
+				v, err := strconv.ParseFloat(y[i], 64)
+				if err != nil {
+					cmiss[i] = true
+				} else {
+					x[i] = v
+				}
+			}
+		}
+		s, _ := NewSeries(ser.Name, x, cmiss)
+		return s
 	}
 }
 

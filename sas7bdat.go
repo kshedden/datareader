@@ -38,6 +38,10 @@ type SAS7BDAT struct {
 	// (SAS7BDAT strings are fixed width)
 	TrimStrings bool
 
+	// If true, converts some date formats to Go date values (does
+	// not work for all SAS date formats)
+	ConvertDates bool
+
 	// The creation date of the file
 	DateCreated time.Time
 
@@ -440,7 +444,6 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 
 		switch cmd {
 		case 0: /* short rle */
-			//os.Stderr.WriteString("RDC0\n")
 			cnt += 3
 			for k := 0; k < int(cnt); k++ {
 				outbuff = append(outbuff, inbuff[inbuff_pos])
@@ -448,7 +451,6 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 			inbuff_pos++
 			break
 		case 1: /* long /rle */
-			//os.Stderr.WriteString("RDC1\n")
 			cnt += uint16((inbuff[inbuff_pos] << 4))
 			cnt += 19
 			inbuff_pos++
@@ -458,7 +460,6 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 			inbuff_pos++
 			break
 		case 2: /* long pattern */
-			//os.Stderr.WriteString("RDC2\n")
 			ofs := cnt + 3
 			ofs += uint16((inbuff[inbuff_pos] << 4))
 			inbuff_pos++
@@ -469,7 +470,6 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 			outbuff = append(outbuff, tmp...)
 			break
 		default: /* short pattern */
-			//os.Stderr.WriteString("RDCd\n")
 			ofs = cnt + 3
 			ofs += uint16(inbuff[inbuff_pos] << 4)
 			inbuff_pos++
@@ -479,9 +479,12 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 		}
 	}
 
-	if len(outbuff) != result_length {
-		os.Stderr.WriteString(fmt.Sprintf("RDC: %v != %v\n", len(outbuff), result_length))
-	}
+	// Too noisy...
+	/*
+		if len(outbuff) != result_length {
+			os.Stderr.WriteString(fmt.Sprintf("RDC: %v != %v\n", len(outbuff), result_length))
+		}
+	*/
 
 	return outbuff
 }
@@ -689,7 +692,12 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 					miss[i] = true
 				}
 			}
-			rslt[j], _ = NewSeries(name, vec, miss)
+			if sas.ConvertDates && (sas.ColumnFormats[j] == "MMDDYY") {
+				tvec := to_date(vec)
+				rslt[j], _ = NewSeries(name, tvec, miss)
+			} else {
+				rslt[j], _ = NewSeries(name, vec, miss)
+			}
 		case string_column_type:
 			if sas.TrimStrings {
 				sas.trim_strings(n, j)
@@ -697,6 +705,19 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 			//sas.decode_strings(n, j)
 			rslt[j], _ = NewSeries(name, sas.stringchunk[j][0:n], miss)
 		}
+	}
+
+	return rslt
+}
+
+func to_date(x []float64) []time.Time {
+
+	rslt := make([]time.Time, len(x))
+
+	base := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	for j, v := range x {
+		rslt[j] = base.Add(time.Hour * time.Duration(24*v))
 	}
 
 	return rslt
@@ -721,11 +742,6 @@ func (sas *SAS7BDAT) trim_strings(n, j int) {
 func (sas *SAS7BDAT) decode_strings(n, j int) {
 	for i := 0; i < n; i++ {
 		s, err := sas.textdecoder.String(sas.stringchunk[j][i])
-		if j == 1 && i == 7 {
-			os.Stderr.WriteString(fmt.Sprintf("%v %v\n", s, sas.stringchunk[j][i]))
-			os.Stderr.WriteString(fmt.Sprintf("%v %v\n", []byte(s), []byte(sas.stringchunk[j][i])))
-			panic("")
-		}
 		if err != nil {
 			panic(err)
 		}
@@ -1198,11 +1214,6 @@ func (sas *SAS7BDAT) process_byte_array_with_data(offset, length int) error {
 				}
 			}
 		} else {
-			if sas.current_row_in_file_index == 7 && j == 1 {
-				os.Stderr.WriteString(fmt.Sprintf("%v %v %v\n", len(source), start, end))
-				os.Stderr.WriteString(fmt.Sprintf("%v\n", source[start-10:end+10]))
-				os.Stderr.WriteString(fmt.Sprintf("temp=%v %v\n", temp, string(temp)))
-			}
 			sas.stringchunk[j][sas.current_row_in_chunk_index] = string(temp)
 		}
 	}
@@ -1235,7 +1246,6 @@ func check_magic_number(b []byte) bool {
 
 func (sas *SAS7BDAT) process_rowsize_subheader(offset, length int) error {
 
-	fmt.Printf("process rowsize subheader\n")
 	int_len := sas.properties.int_length
 	lcs_offset := offset
 	lcp_offset := offset
@@ -1283,7 +1293,6 @@ func (sas *SAS7BDAT) process_rowsize_subheader(offset, length int) error {
 
 func (sas *SAS7BDAT) process_columnsize_subheader(offset, length int) error {
 
-	fmt.Printf("process columnsize subheader\n")
 	int_len := sas.properties.int_length
 	offset += int_len
 	var err error
@@ -1410,7 +1419,6 @@ func (sas *SAS7BDAT) process_columnlist_subheader(offset, length int) error {
 
 func (sas *SAS7BDAT) process_columnattributes_subheader(offset, length int) error {
 
-	fmt.Printf("column attributes subheader\n")
 	int_len := sas.properties.int_length
 	column_attributes_vectors_count := (length - 2*int_len - 12) / (int_len + 8)
 	for i := 0; i < column_attributes_vectors_count; i++ {

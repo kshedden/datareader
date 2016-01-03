@@ -1,7 +1,10 @@
 package datareader
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -79,7 +82,6 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 			os.Stderr.WriteString(fmt.Sprintf("unknown format for column %d: %s\n", j, sas.ColumnFormats[j]))
 		case "":
 			if !ds[j].AllClose(dt[j], 1e-5) {
-				fmt.Printf("%T %T\n", ds[j].Data(), dt[j].Data())
 				switch ds[j].Data().(type) {
 				default:
 					panic("unknown types")
@@ -160,5 +162,107 @@ func TestSAS_binary_compression(t *testing.T) {
 	r := sas_base_test("test1.csv", "test1_compression_binary.sas7bdat")
 	if !r {
 		t.Fail()
+	}
+}
+
+func TestSAS_prds(t *testing.T) {
+
+	fmt.Printf("START\n")
+	f, err := os.Open("/var/tmp/prds_hosp10_yr2012.csv.gz")
+	if err != nil {
+		panic(err)
+	}
+	g, err := gzip.NewReader(f)
+	if err != nil {
+		panic(err)
+	}
+	rdr := NewCSVReader(g)
+	chunk_csv, err := rdr.Read(1000)
+	if err != nil {
+		panic(err)
+	}
+
+	f, err = os.Open("/var/tmp/prds_hosp10_yr2012.sas7bdat.gz")
+	if err != nil {
+		panic(err)
+	}
+	g, err = gzip.NewReader(f)
+	if err != nil {
+		panic(err)
+	}
+	b, err := ioutil.ReadAll(g)
+	if err != nil {
+		panic(err)
+	}
+	br := bytes.NewReader(b)
+	sas, err := NewSAS7BDATReader(br)
+	if err != nil {
+		panic(err)
+	}
+	sas.TrimStrings = true
+	sas.ConvertDates = true
+
+	chunk, err := sas.Read(1000)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(chunk_csv) != len(chunk) {
+		t.Fail()
+	}
+
+	for j := 0; j < len(chunk_csv); j++ {
+		if sas.ColumnFormats[j] == "MMDDYY" {
+			n := chunk_csv[j].Length()
+			x := make([]time.Time, n)
+			for i, v := range chunk_csv[j].Data().([]string) {
+				x[i], _ = time.Parse("01/02/2006", v)
+			}
+			chunk_csv[j], _ = NewSeries(chunk_csv[j].Name, x, chunk_csv[j].Missing())
+		}
+	}
+
+	for j := 0; j < len(chunk); j++ {
+
+		_, ok1 := chunk[j].Data().([]string)
+		_, ok2 := chunk_csv[j].Data().([]float64)
+
+		if ok1 && ok2 {
+			chunk[j] = chunk[j].ForceNumeric()
+		}
+
+		if !chunk[j].AllClose(chunk_csv[j], 1e-5) {
+			chunk[j].PrintRange(0, 5)
+			chunk_csv[j].PrintRange(0, 5)
+			fmt.Printf("%v\n", sas.ColumnFormats[j])
+			fmt.Printf("\n")
+
+			x1, ok1 := chunk_csv[j].Data().([]string)
+			x2, ok2 := chunk[j].Data().([]string)
+			if ok1 && ok2 {
+				for i := 0; i < len(x1); i++ {
+					if x1[i] != x2[i] {
+						fmt.Printf("%v :%s: :%s:\n", i, x1[i], x2[i])
+					}
+				}
+			}
+
+			z1, ok1 := chunk_csv[j].Data().([]float64)
+			z2, ok2 := chunk[j].Data().([]float64)
+			miss1 := chunk_csv[j].Missing()
+			miss2 := chunk_csv[j].Missing()
+			if ok1 && ok2 {
+				fmt.Printf("::->:: %v %v\n", len(z1), len(z2))
+				for i := 0; i < len(z1); i++ {
+					if miss1[i] && miss2[i] {
+						continue
+					}
+					if z1[i] != z2[i] {
+						fmt.Printf("%v %v %v %v %v\n", i, z1[i], z2[i], miss1[i], miss2[i])
+					}
+				}
+			}
+
+		}
 	}
 }
