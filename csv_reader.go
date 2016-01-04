@@ -111,6 +111,26 @@ func (rdr *CSVReader) sniff_types() {
 	}
 }
 
+func (rdr *CSVReader) rectify_lines() {
+
+	mx := 0
+
+	for _, line := range rdr.lines {
+		if len(line) > mx {
+			mx = len(line)
+		}
+	}
+
+	for _, line := range rdr.lines {
+		for {
+			if len(line) >= mx {
+				break
+			}
+			line = append(line, "")
+		}
+	}
+}
+
 // init performs some initializations before reading data.
 func (rdr *CSVReader) init() error {
 
@@ -127,6 +147,8 @@ func (rdr *CSVReader) init() error {
 			rdr.lines = append(rdr.lines, v)
 		}
 	}
+
+	rdr.rectify_lines()
 
 	if len(rdr.lines) == 0 {
 		return errors.New("file appears to be empty")
@@ -225,16 +247,26 @@ func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 		for j := range rdr.ColumnNames {
 			switch rdr.DataTypes[j] {
 			case "float64":
-				x, err := strconv.ParseFloat(line[j], 64)
-				if err != nil {
+				if j >= len(line) {
+					rdr.data_array[j] = append(rdr.data_array[j].([]float64), 0)
+					rdr.miss[j] = append(rdr.miss[j], true)
+				} else {
+					x, err := strconv.ParseFloat(line[j], 64)
+					if err != nil {
+						rdr.miss[j] = append(rdr.miss[j], true)
+					} else {
+						rdr.miss[j] = append(rdr.miss[j], false)
+					}
+					rdr.data_array[j] = append(rdr.data_array[j].([]float64), x)
+				}
+			case "string":
+				if j >= len(line) {
+					rdr.data_array[j] = append(rdr.data_array[j].([]string), "")
 					rdr.miss[j] = append(rdr.miss[j], true)
 				} else {
 					rdr.miss[j] = append(rdr.miss[j], false)
+					rdr.data_array[j] = append(rdr.data_array[j].([]string), line[j])
 				}
-				rdr.data_array[j] = append(rdr.data_array[j].([]float64), x)
-			case "string":
-				rdr.miss[j] = append(rdr.miss[j], false)
-				rdr.data_array[j] = append(rdr.data_array[j].([]string), line[j])
 			}
 		}
 

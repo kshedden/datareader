@@ -118,3 +118,39 @@ func TestCSV4(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestRaggedCSV(t *testing.T) {
+
+	file, err := os.Open(filepath.Join("test_files", "data", "testcsv3.csv"))
+	if err != nil {
+		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
+		t.Fail()
+	}
+
+	rdr := NewCSVReader(file)
+	rdr.HasHeader = true
+
+	data, err := rdr.Read(-1)
+	if err != nil {
+		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
+		t.Fail()
+	}
+	for j := 0; j < len(data); j++ {
+		data[j] = data[j].ForceNumeric()
+	}
+
+	expected := make([]*Series, 4)
+	expected[0], _ = NewSeries("a", []float64{1, 2, 3},
+		[]bool{false, false, false})
+	expected[1], _ = NewSeries("b", []float64{2, 3, 4},
+		[]bool{false, false, false})
+	expected[2], _ = NewSeries("c", []float64{0, 4, 5},
+		[]bool{true, false, false})
+	expected[3], _ = NewSeries("c", []float64{0, 0, 6},
+		[]bool{true, true, false})
+
+	f, _, _ := SeriesArray(data).AllEqual(expected)
+	if !f {
+		t.Fail()
+	}
+}

@@ -304,19 +304,20 @@ func min(x, y int) int {
 // rle_decompress decompresses data using the Run Length Encoding
 // algorithm.
 func rle_decompress(offset int, length int, result_length int, page []byte) []byte {
+
 	current_result_array_index := 0
-	result := make([]byte, 0, 1024)
+	result := make([]byte, 0, result_length)
 	i := 0
 	for j := 0; j < length; j++ {
 		if i != j {
 			continue
 		}
 		control_byte := page[offset+i] & 0xF0
-		end_of_first_byte := page[offset+i] & 0x0F
+		end_of_first_byte := int(page[offset+i] & 0x0F)
 		if control_byte == 0x00 {
 			if i != (length - 1) {
 				nbytes := int(page[offset+i+1] & 0xFF)
-				nbytes += 64 + int(end_of_first_byte)*256
+				nbytes += 64 + end_of_first_byte*256
 				start := offset + i + 2
 				end := start + nbytes
 				result = append(result, page[start:end]...)
@@ -324,7 +325,7 @@ func rle_decompress(offset int, length int, result_length int, page []byte) []by
 				current_result_array_index += nbytes
 			}
 		} else if control_byte == 0x40 {
-			nbytes := int(end_of_first_byte * 16)
+			nbytes := end_of_first_byte * 16
 			nbytes += int(page[offset+i+1] & 0xFF)
 			for k := 0; k < nbytes; k++ {
 				result = append(result, page[offset+i+2])
@@ -332,7 +333,7 @@ func rle_decompress(offset int, length int, result_length int, page []byte) []by
 			}
 			i += 2
 		} else if control_byte == 0x60 {
-			nbytes := int(end_of_first_byte) * 256
+			nbytes := end_of_first_byte * 256
 			nbytes += int(page[offset+i+1]&0xFF) + 17
 			for k := 0; k < nbytes; k++ {
 				result = append(result, 0x20)
@@ -347,14 +348,14 @@ func rle_decompress(offset int, length int, result_length int, page []byte) []by
 			}
 			i += 1
 		} else if control_byte == 0x80 {
-			nbytes := min(int(end_of_first_byte+1), length-(i+1))
+			nbytes := min(end_of_first_byte+1, length-(i+1))
 			start := offset + i + 1
 			end := start + nbytes
 			result = append(result, page[start:end]...)
 			i += nbytes
 			current_result_array_index += nbytes
 		} else if control_byte == 0x90 {
-			nbytes := min(int(end_of_first_byte+17),
+			nbytes := min(end_of_first_byte+17,
 				length-(i+1))
 			start := offset + i + 1
 			end := start + nbytes
@@ -362,42 +363,40 @@ func rle_decompress(offset int, length int, result_length int, page []byte) []by
 			i += nbytes
 			current_result_array_index += nbytes
 		} else if control_byte == 0xA0 {
-			nbytes := min(int(end_of_first_byte+33),
-				length-(i+1))
+			nbytes := min(end_of_first_byte+33, length-(i+1))
 			start := offset + i + 1
 			end := start + nbytes
 			result = append(result, page[start:end]...)
 			i += nbytes
 			current_result_array_index += nbytes
 		} else if control_byte == 0xB0 {
-			nbytes := min(int(end_of_first_byte+49),
-				length-(i+1))
+			nbytes := min(end_of_first_byte+49, length-(i+1))
 			start := offset + i + 1
 			end := start + nbytes
 			result = append(result, page[start:end]...)
 			i += nbytes
 			current_result_array_index += nbytes
 		} else if control_byte == 0xC0 {
-			nbytes := int(end_of_first_byte + 3)
+			nbytes := end_of_first_byte + 3
 			for k := 0; k < nbytes; k++ {
 				result = append(result, page[offset+i+1])
 				current_result_array_index += 1
 			}
 			i += 1
 		} else if control_byte == 0xD0 {
-			nbytes := int(end_of_first_byte + 2)
+			nbytes := end_of_first_byte + 2
 			for k := 0; k < nbytes; k++ {
 				result = append(result, 0x40)
 				current_result_array_index += 1
 			}
 		} else if control_byte == 0xE0 {
-			nbytes := int(end_of_first_byte + 2)
+			nbytes := end_of_first_byte + 2
 			for k := 0; k < nbytes; k++ {
 				result = append(result, 0x20)
 				current_result_array_index += 1
 			}
 		} else if control_byte == 0xF0 {
-			nbytes := int(end_of_first_byte + 2)
+			nbytes := end_of_first_byte + 2
 			for k := 0; k < nbytes; k++ {
 				result = append(result, 0x00)
 				current_result_array_index += 1
@@ -408,6 +407,11 @@ func rle_decompress(offset int, length int, result_length int, page []byte) []by
 		}
 		i += 1
 	}
+
+	if len(result) != result_length {
+		os.Stderr.WriteString(fmt.Sprintf("RLE: %v != %v\n", len(result), result_length))
+	}
+
 	return result
 }
 
