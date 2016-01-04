@@ -426,8 +426,7 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 	for inbuff_pos < len(inbuff) {
 		ctrl_mask = ctrl_mask >> 1
 		if ctrl_mask == 0 {
-			br := bytes.NewReader(inbuff[inbuff_pos : inbuff_pos+2])
-			binary.Read(br, binary.BigEndian, &ctrl_bits)
+			ctrl_bits = uint16(inbuff[inbuff_pos])<<8 + uint16(inbuff[inbuff_pos+1])
 			inbuff_pos += 2
 			ctrl_mask = 0x8000
 		}
@@ -442,49 +441,44 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 		cnt = uint16(inbuff[inbuff_pos] & 0x0F)
 		inbuff_pos++
 
-		switch cmd {
-		case 0: /* short rle */
+		switch {
+		case cmd == 0: /* short rle */
 			cnt += 3
 			for k := 0; k < int(cnt); k++ {
 				outbuff = append(outbuff, inbuff[inbuff_pos])
 			}
 			inbuff_pos++
-			break
-		case 1: /* long /rle */
-			cnt += uint16((inbuff[inbuff_pos] << 4))
+		case cmd == 1: /* long /rle */
+			cnt += uint16(inbuff[inbuff_pos]) << 4
 			cnt += 19
 			inbuff_pos++
 			for k := 0; k < int(cnt); k++ {
 				outbuff = append(outbuff, inbuff[inbuff_pos])
 			}
 			inbuff_pos++
-			break
-		case 2: /* long pattern */
+		case cmd == 2: /* long pattern */
 			ofs := cnt + 3
-			ofs += uint16((inbuff[inbuff_pos] << 4))
+			ofs += uint16(inbuff[inbuff_pos]) << 4
 			inbuff_pos++
 			cnt = uint16(inbuff[inbuff_pos])
 			inbuff_pos++
 			cnt += 16
 			tmp := outbuff[len(outbuff)-int(ofs) : len(outbuff)-int(ofs)+int(cnt)]
 			outbuff = append(outbuff, tmp...)
-			break
-		default: /* short pattern */
+		case (cmd >= 3) && (cmd <= 15): /* short pattern */
 			ofs = cnt + 3
-			ofs += uint16(inbuff[inbuff_pos] << 4)
+			ofs += uint16(inbuff[inbuff_pos]) << 4
 			inbuff_pos++
 			tmp := outbuff[len(outbuff)-int(ofs) : len(outbuff)-int(ofs)+int(cmd)]
 			outbuff = append(outbuff, tmp...)
-			break
+		default:
+			panic("unknown RDC command")
 		}
 	}
 
-	// Too noisy...
-	/*
-		if len(outbuff) != result_length {
-			os.Stderr.WriteString(fmt.Sprintf("RDC: %v != %v\n", len(outbuff), result_length))
-		}
-	*/
+	if len(outbuff) != result_length {
+		os.Stderr.WriteString(fmt.Sprintf("RDC: %v != %v\n", len(outbuff), result_length))
+	}
 
 	return outbuff
 }

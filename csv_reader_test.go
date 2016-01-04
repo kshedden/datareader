@@ -26,7 +26,8 @@ func TestCSV1(t *testing.T) {
 	expected[1], _ = NewSeries("Var2", []float64{2, 5, 8}, nil)
 	expected[2], _ = NewSeries("Var3", []float64{3, 6, 9}, nil)
 
-	if !SeriesArray(data).AllEqual(expected) {
+	f, _, _ := SeriesArray(data).AllEqual(expected)
+	if !f {
 		t.Fail()
 	}
 }
@@ -51,7 +52,8 @@ func TestCSV2(t *testing.T) {
 	expected[1], _ = NewSeries("", []string{"b", "2", "5", "8"}, nil)
 	expected[2], _ = NewSeries("", []string{"c", "3", "6", "9"}, nil)
 
-	if !SeriesArray(data).AllEqual(expected) {
+	f, _, _ := SeriesArray(data).AllEqual(expected)
+	if !f {
 		t.Fail()
 	}
 }
@@ -78,7 +80,8 @@ func TestCSV3(t *testing.T) {
 	expected[1], _ = NewSeries("", []float64{5, 8}, nil)
 	expected[2], _ = NewSeries("", []float64{6, 9}, nil)
 
-	if !SeriesArray(data).AllEqual(expected) {
+	f, _, _ := SeriesArray(data).AllEqual(expected)
+	if !f {
 		t.Fail()
 	}
 }
@@ -110,7 +113,8 @@ func TestCSV4(t *testing.T) {
 	expected[1], _ = NewSeries("", []float64{0, 2, 5, 8}, miss)
 	expected[2], _ = NewSeries("", []float64{0, 3, 6, 9}, miss)
 
-	if !SeriesArray(data).AllEqual(expected) {
+	f, _, _ := SeriesArray(data).AllEqual(expected)
+	if !f {
 		t.Fail()
 	}
 }

@@ -1,13 +1,3 @@
-VO: [3 0 1 0 0 0 0 0]
-ptr=65539
-VO: [3 0 2 0 0 0 0 0]
-ptr=131075
-VO: [3 0 3 0 0 0 0 0]
-ptr=196611
-VO: [3 0 4 0 0 0 0 0]
-ptr=262147
-VO: [0 0 0 0 0 0 0 0]
-ptr=0
 Things,Cities,Unicode_Cities_Strl,Ints,Floats,Bytes,Longs
 Cat,Bogota,Bogotá,1,1,option b Ünicode,1
 Dog,Boston,Uzunköprü,,,,

@@ -106,18 +106,6 @@ floats) or text format (binary is considerably faster).
 > columnize -in=file.dta -out=cols -mode=text
 ```
 
-## Notes/TODO
-
-The SAS reader does not convert dates to Go date or time formats.
-Instead, a `float64` is returned, whose meaning depends on the
-underlying SAS date/time format (which is available as the
-`ColumnFormats` field of the `SAS7BDAT` struct).  For example, the
-value may represent the number of days since January 1, 1960.
-
-SAS files compressed with "char" compression (run length encoding)
-seem to read correctly, but some fies compressed with "binary"
-compression do not.
-
 ## Testing
 
 Automated testing is implemented against the Stata files used to test

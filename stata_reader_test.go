@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 	//"time"
 )
 
@@ -19,7 +20,7 @@ func stata_base_test(fname_csv, fname_stata string) bool {
 	defer f.Close()
 
 	rt := NewCSVReader(f)
-	rt.HasHeader = false
+	rt.HasHeader = true
 	dt, err := rt.Read(-1)
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
@@ -45,21 +46,29 @@ func stata_base_test(fname_csv, fname_stata string) bool {
 	}
 
 	formats := stata.Formats
+	base := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
 	for j := 0; j < len(ds); j++ {
+		ds[j] = ds[j].UpcastNumeric()
 		if strings.Contains(formats[j], "%td") {
-			ti := to_date_yyyymmdd(dt[j].Data().([]float64))
-			dt[j], err = NewSeries(dt[j].Name, ti, dt[j].Missing())
+			dt[j] = dt[j].ForceNumeric()
+			dt[j], err = dt[j].Date_from_duration(base, "days")
 			if err != nil {
-				os.Stderr.Write([]byte(fmt.Sprintf("%v\n", err)))
+				os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 				return false
 			}
 		}
 	}
 
-	for j := 0; j < len(ds); j++ {
-		if !ds[j].AllClose(dt[j], 1e-6) {
-			return false
+	fl, jx, ix := SeriesArray(ds).AllClose(dt, 1e-6)
+	if !fl {
+		if ix == -1 {
+			fmt.Printf("Unequal lengths\n")
+		} else if ix == -2 {
+			fmt.Printf("Unequal types\n")
+		} else {
+			fmt.Printf("Unequal values at column %d row %d\n", jx, ix)
 		}
+		return false
 	}
 
 	return true

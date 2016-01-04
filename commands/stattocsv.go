@@ -32,8 +32,8 @@ func do_conversion(rdr datareader.Statfilereader) {
 			break
 		}
 
-		for j := 0; j < ncol; j++ {
-			chunk[j].UpcastNumeric()
+		for j := 0; j < len(chunk); j++ {
+			chunk[j] = chunk[j].UpcastNumeric()
 		}
 
 		nrow := chunk[0].Length()

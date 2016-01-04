@@ -18,7 +18,7 @@ func upcast_numeric(vec interface{}) ([]float64, error) {
 
 	switch vec.(type) {
 	default:
-		return nil, errors.New("unknown type in upcast_numeric")
+		return nil, errors.New(fmt.Sprintf("unknown type %T in upcast_numeric", vec))
 	case []float64:
 		return vec.([]float64), nil
 	case []float32:

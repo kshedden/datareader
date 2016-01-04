@@ -1,41 +1,25 @@
 clear
 import delimited "data/test1.csv"
-tostring v4, replace
-gen vv4=date(v4, "YMD")
-drop v4
-rename vv4 v4
-format v4 %td
-order _all, sequential
+format column4 %td
+format column12 %td
 save "data/test1_118.dta", replace
 
 clear
 import delimited "data/test1.csv"
-tostring v4, replace
-gen vv4=date(v4, "YMD")
-drop v4
-rename vv4 v4
-format v4 %td
-order _all, sequential
+format column4 %td
+format column12 %td
 saveold "data/test1_117.dta", replace
 
 clear
 import delimited "data/test1.csv"
-tostring v4, replace
-gen vv4=date(v4, "YMD")
-drop v4
-rename vv4 v4
-format v4 %td
-order _all, sequential
+format column4 %td
+format column12 %td
 saveold "data/test1_115.dta", version(12) replace
 
 clear
 import delimited "data/test1.csv"
-tostring v4, replace
-gen vv4=date(v4, "YMD")
-drop v4
-rename vv4 v4
-format v4 %td
-order _all, sequential
+format column4 %td
+format column12 %td
 saveold "data/test1_115b.dta", version(11) replace
 
 

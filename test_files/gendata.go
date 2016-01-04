@@ -5,9 +5,9 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"path/filepath"
 	"math/rand"
 	"os"
+	"path/filepath"
 )
 
 func file1() {
@@ -21,11 +21,15 @@ func file1() {
 
 	w := csv.NewWriter(fid)
 
-	ncol := 10
+	ncol := 100
 	rowdata := make([]string, ncol)
 
+	for k := 0; k < ncol; k++ {
+		rowdata[k] = fmt.Sprintf("Column%d", k+1)
+	}
+	w.Write(rowdata)
+
 	words := []string{"apple", "dog", "pear", "crocodile", "banana"}
-	dates := []string{"19850621", "20001101", "19681010", "19731116"}
 
 	nrow := 10000
 	for i := 0; i < nrow; i++ {
@@ -51,10 +55,11 @@ func file1() {
 					rowdata[j] = fmt.Sprintf("%d", r.Int63n(100))
 				}
 			case 3:
+				// dates
 				if r.Float64() < 0.1 {
 					rowdata[j] = ""
 				} else {
-					rowdata[j] = dates[r.Int63n(4)]
+					rowdata[j] = fmt.Sprintf("%d", r.Int63n(10000))
 				}
 			}
 		}

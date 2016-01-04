@@ -43,6 +43,11 @@ type CSVReader struct {
 
 	// The underlying csv Reader object
 	csvreader *csv.Reader
+
+	// Workspace
+	data_array []interface{}
+	miss       [][]bool
+	num_rows   int
 }
 
 // NewReader returns a dataframe.CSVReader that reads CSV data from r
@@ -153,6 +158,22 @@ func (rdr *CSVReader) ensure_width(w int) {
 		rdr.ColumnNames = append(rdr.ColumnNames, fmt.Sprintf("Column %d", k+1))
 		rdr.DataTypes = append(rdr.DataTypes, "string")
 	}
+
+	for j := 0; j < w; j++ {
+		if len(rdr.data_array) <= j {
+			switch rdr.DataTypes[j] {
+			case "float64":
+				rdr.data_array = append(rdr.data_array, make([]float64, rdr.num_rows))
+			case "string":
+				rdr.data_array = append(rdr.data_array, make([]string, rdr.num_rows))
+			}
+			miss := make([]bool, rdr.num_rows)
+			for i := 0; i < rdr.num_rows; i++ {
+				miss[i] = true
+			}
+			rdr.miss = append(rdr.miss, miss)
+		}
+	}
 }
 
 // Read reads up lines rows of data and returns the results as an
@@ -169,21 +190,20 @@ func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 		}
 	}
 
-	data_array := make([]interface{}, len(rdr.ColumnNames))
-	miss := make([][]bool, len(rdr.ColumnNames))
+	rdr.data_array = make([]interface{}, len(rdr.ColumnNames))
+	rdr.miss = make([][]bool, len(rdr.ColumnNames))
 	for j := range rdr.ColumnNames {
 		switch rdr.DataTypes[j] {
 		case "float64":
-			data_array[j] = make([]float64, 0, 100)
+			rdr.data_array[j] = make([]float64, 0, 100)
 		case "string":
-			data_array[j] = make([]string, 0, 100)
+			rdr.data_array[j] = make([]string, 0, 100)
 		}
-		miss[j] = make([]bool, 0, 100)
+		rdr.miss[j] = make([]bool, 0, 100)
 	}
 
-	i := 0
 	for {
-		if (lines > 0) && (i >= lines) {
+		if (lines > 0) && (rdr.num_rows >= lines) {
 			break
 		}
 
@@ -194,13 +214,12 @@ func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 			rdr.lines = rdr.lines[1:]
 		} else {
 			line, err = rdr.csvreader.Read()
-			if err == csv.ErrFieldCount {
-				rdr.ensure_width(len(line))
-			} else if err == io.EOF {
+			if err == io.EOF {
 				break
 			} else if err != nil {
 				return nil, err
 			}
+			rdr.ensure_width(len(line))
 		}
 
 		for j := range rdr.ColumnNames {
@@ -208,22 +227,22 @@ func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 			case "float64":
 				x, err := strconv.ParseFloat(line[j], 64)
 				if err != nil {
-					miss[j] = append(miss[j], true)
+					rdr.miss[j] = append(rdr.miss[j], true)
 				} else {
-					miss[j] = append(miss[j], false)
+					rdr.miss[j] = append(rdr.miss[j], false)
 				}
-				data_array[j] = append(data_array[j].([]float64), x)
+				rdr.data_array[j] = append(rdr.data_array[j].([]float64), x)
 			case "string":
-				miss[j] = append(miss[j], false)
-				data_array[j] = append(data_array[j].([]string), line[j])
+				rdr.miss[j] = append(rdr.miss[j], false)
+				rdr.data_array[j] = append(rdr.data_array[j].([]string), line[j])
 			}
 		}
 
-		i++
+		rdr.num_rows++
 	}
 
-	data_series := make([]*Series, len(data_array))
-	for j := 0; j < len(data_array); j++ {
+	data_series := make([]*Series, len(rdr.data_array))
+	for j := 0; j < len(rdr.data_array); j++ {
 		var name string
 		if len(rdr.ColumnNames) >= j {
 			name = rdr.ColumnNames[j]
@@ -231,7 +250,7 @@ func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 			name = fmt.Sprintf("Column %d", j+1)
 		}
 		var err error
-		data_series[j], err = NewSeries(name, data_array[j], miss[j])
+		data_series[j], err = NewSeries(name, rdr.data_array[j], rdr.miss[j])
 		if err != nil {
 			panic(fmt.Sprintf("%v", err))
 		}

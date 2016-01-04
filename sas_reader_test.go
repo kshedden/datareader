@@ -1,13 +1,14 @@
 package datareader
 
 import (
-	"bytes"
-	"compress/gzip"
+	//	"bytes"
+	//	"compress/gzip"
 	"fmt"
-	"io/ioutil"
+	//	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
+	//	"strings"
 	"testing"
 	"time"
 )
@@ -33,6 +34,13 @@ func to_date_yyyymmdd(vec []float64) []time.Time {
 	return rslt
 }
 
+func max(x, y int) int {
+	if x >= y {
+		return x
+	}
+	return y
+}
+
 func sas_base_test(fname_csv, fname_sas string) bool {
 
 	f, err := os.Open(filepath.Join("test_files", "data", fname_csv))
@@ -43,7 +51,7 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 	defer f.Close()
 
 	rt := NewCSVReader(f)
-	rt.HasHeader = false
+	rt.HasHeader = true
 	rt.TypeHintsName = map[string]string{"Column 1": "float64"}
 	dt, err := rt.Read(-1)
 	if err != nil {
@@ -63,6 +71,7 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 		return false
 	}
 	sas.TrimStrings = true
+	sas.ConvertDates = true
 
 	ncol := len(sas.ColumnNames())
 
@@ -72,69 +81,33 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 		return false
 	}
 
+	base := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
+	for j := 0; j < len(dt); j++ {
+		if sas.ColumnFormats[j] == "MMDDYY" {
+			dt[j] = dt[j].ForceNumeric()
+			dt[j], err = dt[j].Date_from_duration(base, "days")
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
 	if len(ds) != len(dt) {
 		return false
 	}
 
 	for j := 0; j < ncol; j++ {
-		switch sas.ColumnFormats[j] {
-		default:
-			os.Stderr.WriteString(fmt.Sprintf("unknown format for column %d: %s\n", j, sas.ColumnFormats[j]))
-		case "":
-			if !ds[j].AllClose(dt[j], 1e-5) {
-				switch ds[j].Data().(type) {
-				default:
-					panic("unknown types")
-				case []string:
-					a := ds[j].Data().([]string)
-					b := dt[j].Data().([]string)
-					for i := 0; i < ds[j].Length(); i++ {
-						if a[i] != b[i] {
-							fmt.Printf("%v :%v: :%v: %v %v\n", i, a[i], b[i], len(a[i]), len(b[i]))
-						}
-					}
-				case []float64:
-					a := ds[j].Data().([]float64)
-					b := dt[j].Data().([]float64)
-					for i := 0; i < ds[j].Length(); i++ {
-						if ds[j].Missing()[i] && dt[j].Missing()[i] {
-							continue
-						}
-						aa := fmt.Sprintf("%v", a[i])
-						if ds[j].Missing()[i] {
-							aa = ""
-						}
-						bb := fmt.Sprintf("%v", b[i])
-						if ds[j].Missing()[i] {
-							bb = ""
-						}
-						if aa != bb {
-							fmt.Printf("%d %v %v\n", i, aa, bb)
-						}
-					}
-				}
-				return false
+		fl, ix := ds[j].AllClose(dt[j], 1e-5)
+		if !fl {
+			fmt.Printf("Not equal:\nSAS:\n")
+			if ix == -1 {
+				fmt.Printf("Unequal lengths\n")
+			} else if ix == -2 {
+				fmt.Printf("Unequal types\n")
+			} else {
+				fmt.Printf("Unequal at position %d\n", ix)
 			}
-		case "MMDDYY":
-			base := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
-			sas_series, err := ds[j].date_from_duration(base, "days")
-			if err != nil {
-				return false
-			}
-			vec_sas := sas_series.Data().([]time.Time)
-			vec_txt := to_date_yyyymmdd(dt[j].Data().([]float64))
-			if len(vec_sas) != len(vec_txt) {
-				return false
-			}
-			n := len(vec_sas)
-			for i := 0; i < n; i++ {
-				if ds[j].Missing()[i] && dt[j].Missing()[i] {
-					continue
-				}
-				if vec_sas[i] != vec_txt[i] {
-					return false
-				}
-			}
+			return false
 		}
 	}
 
@@ -165,9 +138,10 @@ func TestSAS_binary_compression(t *testing.T) {
 	}
 }
 
+/*
+// Too messy to use as a test
 func TestSAS_prds(t *testing.T) {
 
-	fmt.Printf("START\n")
 	f, err := os.Open("/var/tmp/prds_hosp10_yr2012.csv.gz")
 	if err != nil {
 		panic(err)
@@ -222,47 +196,41 @@ func TestSAS_prds(t *testing.T) {
 		}
 	}
 
-	for j := 0; j < len(chunk); j++ {
+	for j := 0; j < len(chunk_csv); j++ {
 
-		_, ok1 := chunk[j].Data().([]string)
-		_, ok2 := chunk_csv[j].Data().([]float64)
+		fl, _ := chunk[j].AllClose(chunk_csv[j], 1e-5)
 
-		if ok1 && ok2 {
-			chunk[j] = chunk[j].ForceNumeric()
-		}
-
-		if !chunk[j].AllClose(chunk_csv[j], 1e-5) {
-			chunk[j].PrintRange(0, 5)
-			chunk_csv[j].PrintRange(0, 5)
-			fmt.Printf("%v\n", sas.ColumnFormats[j])
-			fmt.Printf("\n")
-
-			x1, ok1 := chunk_csv[j].Data().([]string)
-			x2, ok2 := chunk[j].Data().([]string)
-			if ok1 && ok2 {
-				for i := 0; i < len(x1); i++ {
-					if x1[i] != x2[i] {
-						fmt.Printf("%v :%s: :%s:\n", i, x1[i], x2[i])
-					}
+		// Try again with different types
+		if !fl {
+			// First try numeric
+			xn := chunk[j].ForceNumeric()
+			yn := chunk_csv[j].ForceNumeric()
+			m1 := xn.CountMissing()
+			m2 := yn.CountMissing()
+			fl2, _ := xn.AllClose(yn, 1e-5)
+			if (float64(m1) < 0.8*float64(xn.Length())) && (float64(m2) < 0.8*float64(yn.Length())) {
+				if fl2 {
+					continue
 				}
 			}
 
-			z1, ok1 := chunk_csv[j].Data().([]float64)
-			z2, ok2 := chunk[j].Data().([]float64)
-			miss1 := chunk_csv[j].Missing()
-			miss2 := chunk_csv[j].Missing()
-			if ok1 && ok2 {
-				fmt.Printf("::->:: %v %v\n", len(z1), len(z2))
-				for i := 0; i < len(z1); i++ {
-					if miss1[i] && miss2[i] {
-						continue
-					}
-					if z1[i] != z2[i] {
-						fmt.Printf("%v %v %v %v %v\n", i, z1[i], z2[i], miss1[i], miss2[i])
-					}
-				}
+			// Now try string
+			xs := chunk[j].ToString().StringFunc(strings.TrimSpace).NullStringMissing()
+			ys := chunk_csv[j].ToString().StringFunc(strings.TrimSpace).NullStringMissing()
+			fl3, j3 := xs.AllClose(ys, 1e-5)
+
+			if fl3 {
+				continue
 			}
 
+			if (m1 > 950) && (m2 > 950) {
+				continue
+			}
+
+			fmt.Printf("#missing: %v %v\n", m1, m2)
+			xs.PrintRange(j3, j3+1)
+			ys.PrintRange(j3, j3+1)
 		}
 	}
 }
+*/
