@@ -2,3 +2,7 @@ language: go
 
 go:
   - tip
+
+install:
+  - go get golang.org/x/text/encoding
+  - go get golang.org/x/text/encoding/charmap
