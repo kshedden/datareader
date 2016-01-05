@@ -106,6 +106,10 @@ floats) or text format (binary is considerably faster).
 > columnize -in=file.dta -out=cols -mode=text
 ```
 
+## TODO/known issues
+
+In the SAS reader, text data are not decoded.
+
 ## Testing
 
 Automated testing is implemented against the Stata files used to test

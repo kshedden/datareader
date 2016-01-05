@@ -301,111 +301,98 @@ func min(x, y int) int {
 	return y
 }
 
+var xx map[uint8]int
+
 // rle_decompress decompresses data using the Run Length Encoding
-// algorithm.
+// algorithm.  It is partially documented here:
+//
+// https://cran.r-project.org/web/packages/sas7bdat/vignettes/sas7bdat.pdf
 func rle_decompress(offset int, length int, result_length int, page []byte) []byte {
 
-	current_result_array_index := 0
+	inbuff := page[offset : offset+length]
 	result := make([]byte, 0, result_length)
-	i := 0
-	for j := 0; j < length; j++ {
-		if i != j {
-			continue
+	for len(inbuff) > 0 {
+		control_byte := inbuff[0] & 0xF0
+
+		_, ok := xx[control_byte]
+		if !ok {
+			xx[control_byte] = 0
 		}
-		control_byte := page[offset+i] & 0xF0
-		end_of_first_byte := int(page[offset+i] & 0x0F)
+		xx[control_byte]++
+
+		end_of_first_byte := int(inbuff[0] & 0x0F)
+		inbuff = inbuff[1:]
 		if control_byte == 0x00 {
-			if i != (length - 1) {
-				nbytes := int(page[offset+i+1] & 0xFF)
-				nbytes += 64 + end_of_first_byte*256
-				start := offset + i + 2
-				end := start + nbytes
-				result = append(result, page[start:end]...)
-				i += nbytes + 1
-				current_result_array_index += nbytes
+			if end_of_first_byte != 0 {
+				os.Stderr.WriteString("Unexpected non-zero end_of_first_byte\n")
 			}
+			nbytes := int(inbuff[0]) + 64
+			inbuff = inbuff[1:]
+			result = append(result, inbuff[0:nbytes]...)
+			inbuff = inbuff[nbytes:]
 		} else if control_byte == 0x40 {
+			// not documented
 			nbytes := end_of_first_byte * 16
-			nbytes += int(page[offset+i+1] & 0xFF)
+			nbytes += int(inbuff[0])
+			inbuff = inbuff[1:]
 			for k := 0; k < nbytes; k++ {
-				result = append(result, page[offset+i+2])
-				current_result_array_index += 1
+				result = append(result, inbuff[0])
 			}
-			i += 2
+			inbuff = inbuff[1:]
 		} else if control_byte == 0x60 {
-			nbytes := end_of_first_byte * 256
-			nbytes += int(page[offset+i+1]&0xFF) + 17
+			nbytes := end_of_first_byte*256 + int(inbuff[0]) + 17
+			inbuff = inbuff[1:]
 			for k := 0; k < nbytes; k++ {
 				result = append(result, 0x20)
-				current_result_array_index += 1
 			}
-			i += 1
 		} else if control_byte == 0x70 {
-			nbytes := int(page[offset+i+1]&0xFF) + 17
+			nbytes := end_of_first_byte*256 + int(inbuff[0]) + 17
+			inbuff = inbuff[1:]
 			for k := 0; k < nbytes; k++ {
 				result = append(result, 0x00)
-				current_result_array_index += 1
 			}
-			i += 1
 		} else if control_byte == 0x80 {
-			nbytes := min(end_of_first_byte+1, length-(i+1))
-			start := offset + i + 1
-			end := start + nbytes
-			result = append(result, page[start:end]...)
-			i += nbytes
-			current_result_array_index += nbytes
+			nbytes := end_of_first_byte + 1
+			result = append(result, inbuff[0:nbytes]...)
+			inbuff = inbuff[nbytes:]
 		} else if control_byte == 0x90 {
-			nbytes := min(end_of_first_byte+17,
-				length-(i+1))
-			start := offset + i + 1
-			end := start + nbytes
-			result = append(result, page[start:end]...)
-			i += nbytes
-			current_result_array_index += nbytes
+			nbytes := end_of_first_byte + 17
+			result = append(result, inbuff[0:nbytes]...)
+			inbuff = inbuff[nbytes:]
 		} else if control_byte == 0xA0 {
-			nbytes := min(end_of_first_byte+33, length-(i+1))
-			start := offset + i + 1
-			end := start + nbytes
-			result = append(result, page[start:end]...)
-			i += nbytes
-			current_result_array_index += nbytes
+			nbytes := end_of_first_byte + 33
+			result = append(result, inbuff[0:nbytes]...)
+			inbuff = inbuff[nbytes:]
 		} else if control_byte == 0xB0 {
-			nbytes := min(end_of_first_byte+49, length-(i+1))
-			start := offset + i + 1
-			end := start + nbytes
-			result = append(result, page[start:end]...)
-			i += nbytes
-			current_result_array_index += nbytes
+			nbytes := end_of_first_byte + 49
+			result = append(result, inbuff[0:nbytes]...)
+			inbuff = inbuff[nbytes:]
 		} else if control_byte == 0xC0 {
 			nbytes := end_of_first_byte + 3
+			x := inbuff[0]
+			inbuff = inbuff[1:]
 			for k := 0; k < nbytes; k++ {
-				result = append(result, page[offset+i+1])
-				current_result_array_index += 1
+				result = append(result, x)
 			}
-			i += 1
 		} else if control_byte == 0xD0 {
 			nbytes := end_of_first_byte + 2
 			for k := 0; k < nbytes; k++ {
 				result = append(result, 0x40)
-				current_result_array_index += 1
 			}
 		} else if control_byte == 0xE0 {
 			nbytes := end_of_first_byte + 2
 			for k := 0; k < nbytes; k++ {
 				result = append(result, 0x20)
-				current_result_array_index += 1
 			}
 		} else if control_byte == 0xF0 {
 			nbytes := end_of_first_byte + 2
 			for k := 0; k < nbytes; k++ {
 				result = append(result, 0x00)
-				current_result_array_index += 1
 			}
 		} else {
 			// do something else here...
 			panic(fmt.Sprintf("unknown control byte: %v", control_byte))
 		}
-		i += 1
 	}
 
 	if len(result) != result_length {
@@ -415,6 +402,9 @@ func rle_decompress(offset int, length int, result_length int, page []byte) []by
 	return result
 }
 
+// rdc_decompress decompresses data using the Ross Data Compression algorithm:
+//
+// http://collaboration.cmc.ec.gc.ca/science/rpn/biblio/ddj/Website/articles/CUJ/1992/9210/ross/ross.htm
 func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 
 	inbuff = inbuff[offset : offset+length]
@@ -488,9 +478,7 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 }
 
 func (sas *SAS7BDAT) get_decompressor() func(int, int, int, []byte) []byte {
-
 	switch sas.Compression {
-
 	default:
 		return nil
 	case rle_compression:
@@ -517,6 +505,8 @@ func NewSAS7BDATReader(r io.ReadSeeker) (*SAS7BDAT, error) {
 	}
 
 	sas.textdecoder = charmap.Windows1250.NewDecoder()
+
+	xx = make(map[uint8]int)
 
 	return sas, nil
 }
