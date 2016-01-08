@@ -2,7 +2,7 @@ package datareader
 
 // Read SAS7BDAT files with go.
 //
-// This code is heavily based on the Python module:
+// This code is based on the Python module:
 // https://pypi.python.org/pypi/sas7bdat
 //
 // See also:
@@ -307,7 +307,7 @@ var xx map[uint8]int
 // algorithm.  It is partially documented here:
 //
 // https://cran.r-project.org/web/packages/sas7bdat/vignettes/sas7bdat.pdf
-func rle_decompress(offset int, length int, result_length int, page []byte) []byte {
+func rle_decompress(offset int, length int, result_length int, page []byte) ([]byte, error) {
 
 	inbuff := page[offset : offset+length]
 	result := make([]byte, 0, result_length)
@@ -390,8 +390,7 @@ func rle_decompress(offset int, length int, result_length int, page []byte) []by
 				result = append(result, 0x00)
 			}
 		} else {
-			// do something else here...
-			panic(fmt.Sprintf("unknown control byte: %v", control_byte))
+			return nil, errors.New(fmt.Sprintf("unknown control byte: %v", control_byte))
 		}
 	}
 
@@ -399,13 +398,13 @@ func rle_decompress(offset int, length int, result_length int, page []byte) []by
 		os.Stderr.WriteString(fmt.Sprintf("RLE: %v != %v\n", len(result), result_length))
 	}
 
-	return result
+	return result, nil
 }
 
 // rdc_decompress decompresses data using the Ross Data Compression algorithm:
 //
 // http://collaboration.cmc.ec.gc.ca/science/rpn/biblio/ddj/Website/articles/CUJ/1992/9210/ross/ross.htm
-func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
+func rdc_decompress(offset, length, result_length int, inbuff []byte) ([]byte, error) {
 
 	inbuff = inbuff[offset : offset+length]
 
@@ -466,7 +465,7 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 			tmp := outbuff[len(outbuff)-int(ofs) : len(outbuff)-int(ofs)+int(cmd)]
 			outbuff = append(outbuff, tmp...)
 		default:
-			panic("unknown RDC command")
+			return nil, errors.New("unknown RDC command")
 		}
 	}
 
@@ -474,10 +473,10 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) []byte {
 		os.Stderr.WriteString(fmt.Sprintf("RDC: %v != %v\n", len(outbuff), result_length))
 	}
 
-	return outbuff
+	return outbuff, nil
 }
 
-func (sas *SAS7BDAT) get_decompressor() func(int, int, int, []byte) []byte {
+func (sas *SAS7BDAT) get_decompressor() func(int, int, int, []byte) ([]byte, error) {
 	switch sas.Compression {
 	default:
 		return nil
@@ -1163,7 +1162,11 @@ func (sas *SAS7BDAT) process_byte_array_with_data(offset, length int) error {
 	var source []byte
 	if (sas.Compression != "") && (length < sas.properties.row_length) {
 		decompressor := sas.get_decompressor()
-		source = decompressor(offset, length, sas.properties.row_length, sas.cached_page)
+		var err error
+		source, err = decompressor(offset, length, sas.properties.row_length, sas.cached_page)
+		if err != nil {
+			return err
+		}
 		offset = 0
 	} else {
 		source = sas.cached_page
