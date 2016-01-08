@@ -8,4 +8,4 @@ install:
   - go get golang.org/x/text/encoding/charmap
 
 env:
-  - GOBIN=${GOPATH}/bin
+  - GOBIN=${HOME}/gopath/bin
