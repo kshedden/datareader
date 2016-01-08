@@ -6,3 +6,6 @@ go:
 install:
   - go get golang.org/x/text/encoding
   - go get golang.org/x/text/encoding/charmap
+
+env:
+  - GOBIN=${GOPATH}:bin
