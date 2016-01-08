@@ -3,8 +3,8 @@ package datareader
 import (
 	//	"bytes"
 	//	"compress/gzip"
+	"compress/gzip"
 	"fmt"
-	//	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -134,6 +134,48 @@ func TestSAS_binary_compression(t *testing.T) {
 
 	r := sas_base_test("test1.csv", "test1_compression_binary.sas7bdat")
 	if !r {
+		t.Fail()
+	}
+}
+
+func Test_pppub14(t *testing.T) {
+
+	f, err := os.Open("test_files/ref/pppub14_redes.csv.gz")
+	if err != nil {
+		panic(err)
+	}
+	g, err := gzip.NewReader(f)
+	if err != nil {
+		panic(err)
+	}
+	rdr := NewCSVReader(g)
+	chunk_csv, err := rdr.Read(1000)
+	if err != nil {
+		panic(err)
+	}
+
+	h, err := os.Open("test_files/data/pppub14_redes.sas7bdat")
+	if err != nil {
+		panic(err)
+	}
+	sas, err := NewSAS7BDATReader(h)
+	if err != nil {
+		panic(err)
+	}
+	sas.TrimStrings = true
+	sas.ConvertDates = true
+
+	chunk, err := sas.Read(1000)
+	if err != nil {
+		panic(err)
+	}
+
+	chunk[0] = chunk[0].ForceNumeric()
+	chunk[495] = chunk[495].ForceNumeric()
+
+	eq, jx, ix := SeriesArray(chunk).AllClose(chunk_csv, 1e-5)
+	if !eq {
+		fmt.Printf("%v %v\n", ix, jx)
 		t.Fail()
 	}
 }

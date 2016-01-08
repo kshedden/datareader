@@ -544,12 +544,15 @@ type SeriesArray []*Series
 // within the given tolerance.  If any corresponding columns are not
 // identically equal, returns (false, j, i), where j is the index of a
 // column and i is the index of a row where the two Series are not
-// identical.  If the lengths of the two arrays of Series objects are
-// not equal returns (false, -1, 0).
+// identical.  If the two SeriesArray objects have different numbers
+// of columns, returns (false, -1, -1).  If column j of the two
+// SeriesArray objects have different lengths, returns (false, j, -1).
+// If column j of the two SeriesArray objects have different types,
+// returns (false, j, -2)
 func (ser SeriesArray) AllClose(other []*Series, tol float64) (bool, int, int) {
 
 	if len(ser) != len(other) {
-		return false, -1, 0
+		return false, -1, -1
 	}
 
 	for j := 0; j < len(ser); j++ {

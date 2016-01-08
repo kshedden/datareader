@@ -1,6 +1,7 @@
 package datareader
 
 import (
+	"compress/gzip"
 	"crypto/md5"
 	"fmt"
 	"io/ioutil"
@@ -21,7 +22,7 @@ func run_stattocsv(filenames []string) map[string][16]byte {
 		args := []string{infile}
 		rslt, err := exec.Command(cmd_name, args...).Output()
 		if err != nil {
-			fmt.Printf("xx:: %v %v\n", cmd_name, infile)
+			os.Stderr.WriteString(fmt.Sprintf("run_stattocsv:: %v %v\n", cmd_name, infile))
 			panic(err)
 		}
 		checksums[file] = md5.Sum(rslt)
@@ -37,15 +38,34 @@ func ref_checksums(filenames []string) map[string][16]byte {
 	for _, file := range filenames {
 		file1 := strings.Replace(file, ".dta", ".csv", -1)
 		file1 = strings.Replace(file1, ".sas7bdat", ".csv", -1)
+
+		var b []byte
+
 		infile := filepath.Join("test_files", "ref", file1)
 		fid, err := os.Open(infile)
-		if err != nil {
+		if os.IsNotExist(err) {
+			infile = infile + ".gz"
+			fid, err = os.Open(infile)
+			if err != nil {
+				panic(err)
+			}
+			rdr, err := gzip.NewReader(fid)
+			if err != nil {
+				panic(err)
+			}
+			b, err = ioutil.ReadAll(rdr)
+			if err != nil {
+				panic(err)
+			}
+		} else if err != nil {
 			panic(err)
+		} else {
+			b, err = ioutil.ReadAll(fid)
+			if err != nil {
+				panic(err)
+			}
 		}
-		b, err := ioutil.ReadAll(fid)
-		if err != nil {
-			panic(err)
-		}
+
 		checksums[file] = md5.Sum(b)
 	}
 
