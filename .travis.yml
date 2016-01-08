@@ -9,3 +9,5 @@ install:
 
 env:
   - GOBIN=${HOME}/gopath/bin
+
+script: go test ./...
