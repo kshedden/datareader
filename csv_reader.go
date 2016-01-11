@@ -2,7 +2,6 @@ package datareader
 
 import (
 	"encoding/csv"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -151,7 +150,7 @@ func (rdr *CSVReader) init() error {
 	rdr.rectify_lines()
 
 	if len(rdr.lines) == 0 {
-		return errors.New("file appears to be empty")
+		return fmt.Errorf("file appears to be empty")
 	}
 
 	if rdr.ColumnNames == nil {

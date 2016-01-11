@@ -14,7 +14,6 @@ package datareader
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	xencoding "golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
@@ -92,7 +91,6 @@ type SAS7BDAT struct {
 	current_page_type                    int
 	current_page_block_count             int
 	current_page_subheaders_count        int
-	current_file_position                int
 	current_row_in_file_index            int
 	current_row_on_page_index            int
 	current_page_data_subheader_pointers []*subheaderPointer
@@ -272,8 +270,8 @@ const (
 	column_format_text_subheader_index_length = 2
 	column_format_offset_offset               = 24
 	column_format_offset_length               = 2
-	column_format_length_length               = 26
-	colun_format_length_length                = 2
+	column_format_length_offset               = 26
+	column_format_length_length               = 2
 	column_label_text_subheader_index_offset  = 28
 	column_label_text_subheader_index_length  = 2
 	column_label_offset_offset                = 30
@@ -301,8 +299,6 @@ func min(x, y int) int {
 	return y
 }
 
-var xx map[uint8]int
-
 // rle_decompress decompresses data using the Run Length Encoding
 // algorithm.  It is partially documented here:
 //
@@ -313,12 +309,6 @@ func rle_decompress(offset int, length int, result_length int, page []byte) ([]b
 	result := make([]byte, 0, result_length)
 	for len(inbuff) > 0 {
 		control_byte := inbuff[0] & 0xF0
-
-		_, ok := xx[control_byte]
-		if !ok {
-			xx[control_byte] = 0
-		}
-		xx[control_byte]++
 
 		end_of_first_byte := int(inbuff[0] & 0x0F)
 		inbuff = inbuff[1:]
@@ -390,7 +380,7 @@ func rle_decompress(offset int, length int, result_length int, page []byte) ([]b
 				result = append(result, 0x00)
 			}
 		} else {
-			return nil, errors.New(fmt.Sprintf("unknown control byte: %v", control_byte))
+			return nil, fmt.Errorf("unknown control byte: %v", control_byte)
 		}
 	}
 
@@ -465,7 +455,7 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) ([]byte, e
 			tmp := outbuff[len(outbuff)-int(ofs) : len(outbuff)-int(ofs)+int(cmd)]
 			outbuff = append(outbuff, tmp...)
 		default:
-			return nil, errors.New("unknown RDC command")
+			return nil, fmt.Errorf("unknown RDC command")
 		}
 	}
 
@@ -493,7 +483,7 @@ func NewSAS7BDATReader(r io.ReadSeeker) (*SAS7BDAT, error) {
 
 	sas := new(SAS7BDAT)
 	sas.file = r
-	err := sas.setProperties()
+	err := sas.getProperties()
 	if err != nil {
 		return nil, err
 	}
@@ -505,29 +495,26 @@ func NewSAS7BDATReader(r io.ReadSeeker) (*SAS7BDAT, error) {
 
 	sas.textdecoder = charmap.Windows1250.NewDecoder()
 
-	xx = make(map[uint8]int)
-
 	return sas, nil
 }
 
 // read_bytes read length bytes from the given offset in the current
 // page (or from the beginning of the file if no page has yet been
 // read).
-func (sas *SAS7BDAT) read_bytes(offset int, length int) error {
+func (sas *SAS7BDAT) read_bytes(offset, length int) error {
 	sas.ensure_buf_size(length)
 
 	if sas.cached_page == nil {
 		sas.file.Seek(int64(offset), 0)
 		n, err := sas.file.Read(sas.buf[0:length])
-		sas.current_file_position = offset + n
 		if err != nil {
 			return err
 		} else if n < length {
-			return errors.New(fmt.Sprintf("Unable to read %d bytes from file position %d.", length, offset))
+			return fmt.Errorf("Unable to read %d bytes from file position %d.", length, offset)
 		}
 	} else {
 		if offset+length > len(sas.cached_page) {
-			return errors.New(fmt.Sprintf("The cached page is too small."))
+			return fmt.Errorf("The cached page is too small.")
 		}
 		copy(sas.buf, sas.cached_page[offset:offset+length])
 	}
@@ -539,7 +526,7 @@ func (sas *SAS7BDAT) read_float(offset, width int) (float64, error) {
 	var x float64
 	switch width {
 	default:
-		return 0, errors.New("unknown float width")
+		return 0, fmt.Errorf("unknown float width")
 	case 8:
 		err := binary.Read(r, sas.ByteOrder, &x)
 		if err != nil {
@@ -549,13 +536,13 @@ func (sas *SAS7BDAT) read_float(offset, width int) (float64, error) {
 	return x, nil
 }
 
-// Read an integer of 1, 2, 4 or 8 byte width from the supplied buffer.
+// Read an integer of 1, 2, 4 or 8 byte width from the supplied bytes.
 func (sas *SAS7BDAT) read_int_from_buffer(buf []byte, width int) (int, error) {
 
 	r := bytes.NewReader(buf[0:width])
 	switch width {
 	default:
-		return 0, errors.New("invalid integer width")
+		return 0, fmt.Errorf("invalid integer width")
 	case 1:
 		var x int8
 		err := binary.Read(r, sas.ByteOrder, &x)
@@ -609,11 +596,6 @@ func (sas *SAS7BDAT) read_int(offset, width int) (int, error) {
 // float64 or string.  If num_rows is negative, the remainder of the
 // file is read.
 //
-// SAS date/time values are returned as float64 values.  The meaning
-// of these values depends on the formats, which are placed in
-// SAS7BDAT.ColumnFormats.  For example, SAS date formats correspond to
-// the number of days since January 1, 1960.
-//
 // SAS strings variables have a fixed width.  By default, right
 // whitespace is trimmed from each string, but this can be turned off
 // by setting the TrimRight field in the SAS7BDAT struct.
@@ -633,7 +615,7 @@ func (sas *SAS7BDAT) Read(num_rows int) ([]*Series, error) {
 		for j := 0; j < sas.properties.column_count; j++ {
 			switch sas.column_types[j] {
 			default:
-				return nil, errors.New("unknown column type")
+				return nil, fmt.Errorf("unknown column type")
 			case number_column_type:
 				sas.bytechunk[j] = make([]byte, 8*num_rows)
 			case string_column_type:
@@ -773,16 +755,9 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 			}
 			return nil, false
 		} else if sas.is_page_mix_type(sas.current_page_type) {
-			align_correction := 0
-			if sas.align_correction != 0 {
-				align_correction = bit_offset
-				align_correction += subheader_pointers_offset
-				align_correction += sas.current_page_subheaders_count * subheader_pointer_length
-				align_correction %= 8
-			}
+			// possible need for alignment correction here
 			offset := bit_offset
 			offset += subheader_pointers_offset
-			offset += align_correction
 			offset += sas.current_page_subheaders_count * subheader_pointer_length
 			offset += sas.current_row_on_page_index * sas.properties.row_length
 			err := sas.process_byte_array_with_data(offset, sas.properties.row_length)
@@ -821,7 +796,7 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 			}
 			return nil, false
 		} else {
-			return errors.New(fmt.Sprintf("unknown page type: %s", sas.current_page_type)), false
+			return fmt.Errorf("unknown page type: %s", sas.current_page_type), false
 		}
 	}
 	return nil, false
@@ -839,8 +814,8 @@ func (sas *SAS7BDAT) read_next_page() (error, bool) {
 	}
 
 	if len(sas.cached_page) != sas.properties.page_length {
-		return errors.New(fmt.Sprintf("failed to read complete page from file (read %d of %d bytes)",
-			len(sas.cached_page), sas.properties.page_length)), false
+		return fmt.Errorf("failed to read complete page from file (read %d of %d bytes)",
+			len(sas.cached_page), sas.properties.page_length), false
 	}
 	sas.read_page_header()
 	if sas.current_page_type == page_meta_type {
@@ -849,13 +824,13 @@ func (sas *SAS7BDAT) read_next_page() (error, bool) {
 			return err, false
 		}
 	}
-	if check_page_type(sas.current_page_type, sas) {
+	if check_page_type(sas.current_page_type) {
 		return sas.read_next_page()
 	}
 	return nil, false
 }
 
-func (sas *SAS7BDAT) setProperties() error {
+func (sas *SAS7BDAT) getProperties() error {
 	prop := new(sasProperties)
 	sas.properties = prop
 
@@ -867,7 +842,7 @@ func (sas *SAS7BDAT) setProperties() error {
 	sas.cached_page = make([]byte, 288)
 	copy(sas.cached_page, sas.buf[0:288])
 	if check_magic_number(sas.cached_page) == false {
-		return errors.New("magic number mismatch (not a SAS file?)")
+		return fmt.Errorf("magic number mismatch (not a SAS file?)")
 	}
 
 	// Get alignment information
@@ -946,53 +921,61 @@ func (sas *SAS7BDAT) setProperties() error {
 	}
 	sas.DateModified = epoch.Add(time.Duration(x) * time.Second)
 
-	prop.header_length, _ = sas.read_int(header_size_offset+align1, header_size_length)
+	prop.header_length, err = sas.read_int(header_size_offset+align1, header_size_length)
+	if err != nil {
+		return fmt.Errorf("Unable to read header size\n")
+	}
+	/*
+		if sas.U64 && prop.header_length != 8192 {
+			os.Stderr.WriteString(fmt.Sprintf("header length %d != 8192\n", prop.header_length))
+		}
+	*/
 
 	// Read the rest of the header into cached_page.
 	v := make([]byte, prop.header_length-288)
 	sas.file.Read(v)
 	sas.cached_page = append(sas.cached_page, v...)
 	if len(sas.cached_page) != prop.header_length {
-		return errors.New("The SAS7BDAT file appears to be truncated.")
+		return fmt.Errorf("The SAS7BDAT file appears to be truncated.")
 	}
 
 	prop.page_length, err = sas.read_int(page_size_offset+align1, page_size_length)
 	if err != nil {
-		return errors.New("Unable to read the page size value.")
+		return fmt.Errorf("Unable to read the page size value.")
 	}
 	prop.page_count, err = sas.read_int(page_count_offset+align1, page_count_length)
 	if err != nil {
-		return errors.New("Unable to read the page count value.")
+		return fmt.Errorf("Unable to read the page count value.")
 	}
 
 	err = sas.read_bytes(sas_release_offset+total_align, sas_release_length)
 	if err != nil {
-		return errors.New("Unable to read SAS relase value.")
+		return fmt.Errorf("Unable to read SAS relase value.")
 	}
 	sas.SASRelease = string(sas.buf[0:sas_release_length])
 
 	err = sas.read_bytes(sas_server_type_offset+total_align, sas_server_type_length)
 	if err != nil {
-		return errors.New("Unable to read SAS server type value.")
+		return fmt.Errorf("Unable to read SAS server type value.")
 	}
 	sas.ServerType = string(bytes.TrimRight(sas.buf[0:sas_server_type_length], " \000"))
 
 	err = sas.read_bytes(os_version_number_offset+total_align, os_version_number_length)
 	if err != nil {
-		return errors.New("Unable to read version number.")
+		return fmt.Errorf("Unable to read version number.")
 	}
 	sas.OSType = string(bytes.TrimRight(sas.buf[0:os_version_number_length], "\000"))
 
 	err = sas.read_bytes(os_name_offset+total_align, os_name_length)
 	if err != nil {
-		return errors.New("Unable to read OS name.")
+		return fmt.Errorf("Unable to read OS name.")
 	}
 	if sas.buf[0] != 0 {
 		sas.OSName = string(bytes.TrimRight(sas.buf[0:os_name_length], " \000"))
 	} else {
 		err = sas.read_bytes(os_maker_offset+total_align, os_maker_length)
 		if err != nil {
-			return errors.New("Unable to read OS maker value.")
+			return fmt.Errorf("Unable to read OS maker value.")
 		}
 		sas.OSName = string(bytes.TrimRight(sas.buf[0:os_maker_length], " \000"))
 	}
@@ -1005,16 +988,17 @@ func (sas *SAS7BDAT) read_page_header() error {
 	var err error
 	sas.current_page_type, err = sas.read_int(page_type_offset+bit_offset, page_type_length)
 	if err != nil {
-		return errors.New("Unable to read page type value.")
+		return fmt.Errorf("Unable to read page type value.")
 	}
 	sas.current_page_block_count, err = sas.read_int(block_count_offset+bit_offset, block_count_length)
 	if err != nil {
-		return errors.New("Unable to read block count value.")
+		return fmt.Errorf("Unable to read block count value.")
 	}
 	sas.current_page_subheaders_count, err = sas.read_int(subheader_count_offset+bit_offset, subheader_count_length)
 	if err != nil {
-		return errors.New("Unable to read subheader count value.")
+		return fmt.Errorf("Unable to read subheader count value.")
 	}
+
 	return nil
 }
 
@@ -1058,7 +1042,7 @@ func (sas *SAS7BDAT) process_subheader(subheader_index int, pointer *subheaderPo
 
 	switch subheader_index {
 	default:
-		return errors.New("unknown index type")
+		return fmt.Errorf("unknown index type")
 	case rowSizeIndex:
 		processor = sas.process_rowsize_subheader
 	case columnSizeIndex:
@@ -1090,10 +1074,7 @@ func (sas *SAS7BDAT) process_subheader(subheader_index int, pointer *subheaderPo
 }
 
 func (sas *SAS7BDAT) read_subheader_signature(offset int) ([]byte, error) {
-	length := 4
-	if sas.U64 {
-		length = 8
-	}
+	length := sas.properties.int_length
 	err := sas.read_bytes(offset, length)
 	if err != nil {
 		return nil, err
@@ -1109,34 +1090,31 @@ func (sas *SAS7BDAT) process_subheader_counts(offset, length int) error {
 
 func (sas *SAS7BDAT) process_subheader_pointers(offset, subheader_pointer_index int) (*subheaderPointer, error) {
 
-	length := 8
-	if !sas.U64 {
-		length = 4
-	}
+	length := sas.properties.int_length
 	subheader_pointer_length := sas.properties.subheader_pointer_length
 	total_offset := offset + subheader_pointer_length*subheader_pointer_index
 
 	subheader_offset, err := sas.read_int(total_offset, length)
 	if err != nil {
-		return nil, errors.New("Unable to read subheader offset value.")
+		return nil, fmt.Errorf("Unable to read subheader offset value.")
 	}
 	total_offset += length
 
 	subheader_length, err := sas.read_int(total_offset, length)
 	if err != nil {
-		return nil, errors.New("Unable to read subheader length value.")
+		return nil, fmt.Errorf("Unable to read subheader length value.")
 	}
 	total_offset += length
 
 	subheader_compression, err := sas.read_int(total_offset, 1)
 	if err != nil {
-		return nil, errors.New("Unable to read subheader compression value.")
+		return nil, fmt.Errorf("Unable to read subheader compression value.")
 	}
 	total_offset++
 
 	subheader_type, err := sas.read_int(total_offset, 1)
 	if err != nil {
-		return nil, errors.New("Unable to read subheader type value.")
+		return nil, fmt.Errorf("Unable to read subheader type value.")
 	}
 
 	return &subheaderPointer{subheader_offset, subheader_length,
@@ -1151,7 +1129,7 @@ func (sas *SAS7BDAT) get_subheader_index(signature []byte, compression, ptype in
 		if (sas.Compression != "") && f && (ptype == compressed_subheader_type) {
 			index = dataSubheaderIndex
 		} else {
-			return 0, errors.New("Unknwn subheader signature")
+			return 0, fmt.Errorf("Unknwn subheader signature")
 		}
 	}
 	return index, nil
@@ -1306,12 +1284,12 @@ func (sas *SAS7BDAT) process_columntext_subheader(offset, length int) error {
 
 	text_block_size, err := sas.read_int(offset, text_block_size_length)
 	if err != nil {
-		return errors.New("Cannot read text block size for column names.")
+		return fmt.Errorf("Cannot read text block size for column names.")
 	}
 
 	err = sas.read_bytes(offset, text_block_size)
 	if err != nil {
-		return errors.New("Cannot read column names strings.")
+		return fmt.Errorf("Cannot read column names strings.")
 	}
 	sas.column_names_strings = append(sas.column_names_strings, string(sas.buf[0:text_block_size]))
 
@@ -1385,15 +1363,15 @@ func (sas *SAS7BDAT) process_columnname_subheader(offset, length int) error {
 
 		idx, err := sas.read_int(text_subheader, column_name_text_subheader_length)
 		if err != nil {
-			return errors.New("Unable to read text subheader for column name.")
+			return fmt.Errorf("Unable to read text subheader for column name.")
 		}
 		col_offset, err := sas.read_int(col_name_offset, column_name_offset_length)
 		if err != nil {
-			return errors.New("Unable to read column_name offset.")
+			return fmt.Errorf("Unable to read column_name offset.")
 		}
 		col_len, err := sas.read_int(col_name_length, column_name_length_length)
 		if err != nil {
-			return errors.New("Unable to read column name length.")
+			return fmt.Errorf("Unable to read column name length.")
 		}
 
 		name_str := sas.column_names_strings[idx]
@@ -1448,16 +1426,16 @@ func (sas *SAS7BDAT) process_format_subheader(offset, length int) error {
 	int_len := sas.properties.int_length
 	text_subheader_format := offset + column_format_text_subheader_index_offset + 3*int_len
 	col_format_offset := offset + column_format_offset_offset + 3*int_len
-	col_format_len := offset + column_format_length_length + 3*int_len
+	col_format_len := offset + column_format_length_offset + 3*int_len
 	text_subheader_label := offset + column_label_text_subheader_index_offset + 3*int_len
 	col_label_offset := offset + column_label_offset_offset + 3*int_len
-	col_label_len := offset + column_label_length_offset + 3*int_len
+	col_label_len := offset + column_label_offset_length + 3*int_len
 
 	x, _ := sas.read_int(text_subheader_format, column_format_text_subheader_index_length)
 	format_idx := min(x, len(sas.column_names_strings)-1)
 
 	format_start, _ := sas.read_int(col_format_offset, column_format_offset_length)
-	format_len, _ := sas.read_int(col_format_len, colun_format_length_length)
+	format_len, _ := sas.read_int(col_format_len, column_format_length_length)
 
 	label_idx, _ := sas.read_int(text_subheader_label, column_label_text_subheader_index_length)
 	label_idx = min(label_idx, len(sas.column_names_strings)-1)
@@ -1510,7 +1488,7 @@ func (sas *SAS7BDAT) parse_metadata() error {
 			return err
 		}
 		if n != sas.properties.page_length {
-			return errors.New("Failed to read a meta data page from the SAS file.")
+			return fmt.Errorf("Failed to read a meta data page from the SAS file.")
 		}
 		done, err = sas.process_page_meta()
 		if err != nil {
@@ -1572,7 +1550,7 @@ func is_page_any(val int) bool {
 	return false
 }
 
-func check_page_type(current_page int, sas *SAS7BDAT) bool {
+func check_page_type(current_page int) bool {
 	switch current_page {
 	case page_meta_type, page_data_type, 512, 640:
 		return false

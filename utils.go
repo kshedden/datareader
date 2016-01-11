@@ -1,7 +1,6 @@
 package datareader
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -18,7 +17,7 @@ func upcast_numeric(vec interface{}) ([]float64, error) {
 
 	switch vec.(type) {
 	default:
-		return nil, errors.New(fmt.Sprintf("unknown type %T in upcast_numeric", vec))
+		return nil, fmt.Errorf("unknown type %T in upcast_numeric", vec)
 	case []float64:
 		return vec.([]float64), nil
 	case []float32:
@@ -67,9 +66,8 @@ func upcast_numeric(vec interface{}) ([]float64, error) {
 func cast_to_int(x interface{}) ([]int64, error) {
 
 	switch x.(type) {
-
 	default:
-		return nil, errors.New(fmt.Sprintf("cannot cast %T to integer", x))
+		return nil, fmt.Errorf("cannot cast %T to integer", x)
 	case []int64:
 		return x.([]int64), nil
 	case []float64:

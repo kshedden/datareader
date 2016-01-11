@@ -1,7 +1,6 @@
 package datareader
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -37,7 +36,7 @@ func NewSeries(name string, data interface{}, missing []bool) (*Series, error) {
 
 	switch data.(type) {
 	default:
-		return nil, errors.New("Unknown data type in NewSeries")
+		return nil, fmt.Errorf("Unknown data type in NewSeries")
 	case []float64:
 		length = len(data.([]float64))
 	case []string:
@@ -589,7 +588,7 @@ func (ser *Series) Date_from_duration(base time.Time, units string) (*Series, er
 	for i := 0; i < n; i++ {
 		switch units {
 		default:
-			return nil, errors.New("unknown time unit duration")
+			return nil, fmt.Errorf("unknown time unit duration")
 		case "days":
 			if (miss == nil) || !miss[i] {
 				newdate[i] = base.Add(time.Hour * time.Duration(24*td[i]))

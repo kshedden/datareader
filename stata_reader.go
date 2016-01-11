@@ -3,7 +3,6 @@ package datareader
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -222,7 +221,7 @@ func (rdr *StataReader) read_int(width int) (int, error) {
 
 	switch width {
 	default:
-		return 0, errors.New(fmt.Sprintf("unsupported width %d in read_int", width))
+		return 0, fmt.Errorf("unsupported width %d in read_int", width)
 	case 1:
 		var x int8
 		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
@@ -304,7 +303,7 @@ func (rdr *StataReader) read_old_header() error {
 	}
 	rdr.FormatVersion = int(format)
 	if !rdr.supported_version() {
-		return errors.New(fmt.Sprintf("Invalid Stata dta format version: %v\n", rdr.FormatVersion))
+		return fmt.Errorf("Invalid Stata dta format version: %v\n", rdr.FormatVersion)
 	}
 
 	// Get the byte order
@@ -340,7 +339,7 @@ func (rdr *StataReader) read_old_header() error {
 		return err
 	}
 	if n != 81 {
-		return errors.New("stata file appears to be truncated")
+		return fmt.Errorf("stata file appears to be truncated")
 	}
 	rdr.DatasetLabel = string(partition(buf[0:81]))
 
@@ -350,7 +349,7 @@ func (rdr *StataReader) read_old_header() error {
 		return err
 	}
 	if n != 18 {
-		return errors.New("stata file appears to be truncated")
+		return fmt.Errorf("stata file appears to be truncated")
 	}
 	rdr.TimeStamp = string(partition(buf[0:18]))
 
@@ -380,10 +379,10 @@ func (rdr *StataReader) read_new_header() error {
 		return err
 	}
 	if n != 28 {
-		return errors.New("file appears to be truncated")
+		return fmt.Errorf("file appears to be truncated")
 	}
 	if string(buf[0:11]) != "<stata_dta>" {
-		return errors.New("Invalid Stata file")
+		return fmt.Errorf("Invalid Stata file")
 	}
 
 	// Stata file version
@@ -394,7 +393,7 @@ func (rdr *StataReader) read_new_header() error {
 	}
 	rdr.FormatVersion = int(x)
 	if !rdr.supported_version() {
-		return errors.New("Invalid Stata dta format version")
+		return fmt.Errorf("Invalid Stata dta format version")
 	}
 
 	// </release><byteorder>
@@ -439,7 +438,7 @@ func (rdr *StataReader) read_new_header() error {
 		return err
 	}
 	if n != w {
-		return errors.New("stata file appears to be truncated")
+		return fmt.Errorf("stata file appears to be truncated")
 	}
 	rdr.DatasetLabel = string(buf[0:w])
 
@@ -456,7 +455,7 @@ func (rdr *StataReader) read_new_header() error {
 		return err
 	}
 	if n != int(n8) {
-		return errors.New("stata file appears to be truncated")
+		return fmt.Errorf("stata file appears to be truncated")
 	}
 	rdr.TimeStamp = string(buf[0:n8])
 
@@ -492,7 +491,7 @@ func (rdr *StataReader) read_vartypes() error {
 	case rdr.FormatVersion == 114:
 		err = rdr.read_vartypes_8()
 	default:
-		err = errors.New(fmt.Sprintf("unknown format version %v in read_vartypes", rdr.FormatVersion))
+		err = fmt.Errorf("unknown format version %v in read_vartypes", rdr.FormatVersion)
 	}
 
 	return err
@@ -606,7 +605,7 @@ func (rdr *StataReader) read_varnames() error {
 	case rdr.FormatVersion == 114:
 		err = rdr.do_read_varnames(33, false)
 	default:
-		return errors.New(fmt.Sprintf("unknown format version %v in read_varnames", rdr.FormatVersion))
+		return fmt.Errorf("unknown format version %v in read_varnames", rdr.FormatVersion)
 	}
 	return err
 }
@@ -623,7 +622,7 @@ func (rdr *StataReader) do_read_varnames(bufsize int, seek bool) error {
 			return err
 		}
 		if n != bufsize {
-			return errors.New("stata file appears to be truncated")
+			return fmt.Errorf("stata file appears to be truncated")
 		}
 		rdr.column_names[k] = string(partition(buf))
 	}
@@ -790,7 +789,7 @@ func (rdr *StataReader) read_strls() error {
 			rdr.StrlsBytes[ptr] = make([]byte, length)
 			copy(rdr.StrlsBytes[ptr], buf[0:length])
 		} else {
-			return errors.New("unknown t value")
+			return fmt.Errorf("unknown t value")
 		}
 	}
 	return nil
@@ -818,7 +817,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 	for j, t := range rdr.var_types {
 		switch {
 		default:
-			return nil, errors.New(fmt.Sprintf("unknown variable type: %v", t))
+			return nil, fmt.Errorf("unknown variable type: %v", t)
 		case t <= 2045:
 			data[j] = make([]string, nval)
 		case t == 32768:
