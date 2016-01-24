@@ -119,6 +119,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		sas.ConvertDates = true
 		sas.TrimStrings = true
 		rdr = sas
 	} else if filetype == "stata" {

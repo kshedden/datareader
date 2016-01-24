@@ -309,8 +309,8 @@ func rle_decompress(offset int, length int, result_length int, page []byte) ([]b
 	result := make([]byte, 0, result_length)
 	for len(inbuff) > 0 {
 		control_byte := inbuff[0] & 0xF0
-
 		end_of_first_byte := int(inbuff[0] & 0x0F)
+
 		inbuff = inbuff[1:]
 		if control_byte == 0x00 {
 			if end_of_first_byte != 0 {
@@ -1556,4 +1556,12 @@ func check_page_type(current_page int) bool {
 		return false
 	}
 	return true
+}
+
+func tmp_sum(vec []byte) int {
+	x := 0
+	for _, v := range vec {
+		x += int(v)
+	}
+	return x
 }
