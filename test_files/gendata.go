@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 )
 
-func file1() {
+func gen1(words []string, fname string) {
 
 	r := rand.New(rand.NewSource(99))
 
-	fid, err := os.Create(filepath.Join("data", "test1.csv"))
+	fid, err := os.Create(filepath.Join("data", fname))
 	if err != nil {
 		panic("Unable to open file.")
 	}
@@ -30,8 +30,6 @@ func file1() {
 		rowdata[k] = fmt.Sprintf("Column%d", k+1)
 	}
 	w.Write(rowdata)
-
-	words := []string{"apple", "dog", "pear", "crocodile", "banana"}
 
 	for i := 0; i < nrow; i++ {
 
@@ -72,5 +70,10 @@ func file1() {
 }
 
 func main() {
-	file1()
+
+	words := []string{"apple", "dog", "pear", "crocodile", "banana"}
+	gen1(words, "test1.csv")
+
+	words = []string{"부산", "Иркутск", "高雄市", "鱷魚", "ひらがな"}
+	gen1(words, "test2.csv")
 }

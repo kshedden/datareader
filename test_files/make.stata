@@ -22,4 +22,28 @@ format column4 %td
 format column12 %td
 saveold "data/test1_115b.dta", version(11) replace
 
+clear
+import delimited "data/test2.csv", encoding("utf8")
+format column4 %td
+format column12 %td
+save "data/test2_118.dta", replace
+
+clear
+import delimited "data/test2.csv", encoding("utf8")
+format column4 %td
+format column12 %td
+saveold "data/test2_117.dta", replace
+
+clear
+import delimited "data/test2.csv", encoding("utf8")
+format column4 %td
+format column12 %td
+saveold "data/test2_115.dta", version(12) replace
+
+clear
+import delimited "data/test2.csv", encoding("utf8")
+format column4 %td
+format column12 %td
+saveold "data/test2_115b.dta", version(11) replace
+
 

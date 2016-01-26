@@ -67,6 +67,8 @@ func stata_base_test(fname_csv, fname_stata string) bool {
 			fmt.Printf("Unequal types\n")
 		} else {
 			fmt.Printf("Unequal values at column %d row %d\n", jx, ix)
+			ds[jx].Print()
+			dt[jx].Print()
 		}
 		return false
 	}
@@ -76,36 +78,26 @@ func stata_base_test(fname_csv, fname_stata string) bool {
 
 func TestStata1(t *testing.T) {
 
-	r := stata_base_test("test1.csv", "test1_118.dta")
-	if !r {
-		t.Fail()
-	}
+	fnames := []string{"test1_115.dta", "test1_115b.dta", "test1_117.dta", "test1_118.dta"}
 
+	for _, fname := range fnames {
+
+		r := stata_base_test("test1.csv", fname)
+		if !r {
+			t.Fail()
+		}
+	}
 }
 
 func TestStata2(t *testing.T) {
 
-	r := stata_base_test("test1.csv", "test1_117.dta")
-	if !r {
-		t.Fail()
+	fnames := []string{"test2_115.dta", "test2_115b.dta", "test2_117.dta", "test2_118.dta"}
+
+	for _, fname := range fnames {
+
+		r := stata_base_test("test2.csv", fname)
+		if !r {
+			t.Fail()
+		}
 	}
-
-}
-
-func TestStata3(t *testing.T) {
-
-	r := stata_base_test("test1.csv", "test1_115.dta")
-	if !r {
-		t.Fail()
-	}
-
-}
-
-func TestStata4(t *testing.T) {
-
-	r := stata_base_test("test1.csv", "test1_115b.dta")
-	if !r {
-		t.Fail()
-	}
-
 }

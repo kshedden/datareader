@@ -19,56 +19,69 @@ libname aix64 'data'
 proc import
     datafile='data/test1.csv'
     dbms='csv'
-    out=test0;
+    out=test1;
 
-data test1;
-    set test0;
+proc import
+    datafile='data/test2.csv'
+    dbms='csv'
+    out=test2;
+
+data testa;
+    set test1;
+    format Column4 mmddyy10.;
+    format Column12 mmddyy10.;
+
+data testb;
+    set test2;
     format Column4 mmddyy10.;
     format Column12 mmddyy10.;
 
 data win32.test1(compress=no);
-    set test1;
+    set testa;
 
 data win32.test2(compress=char);
-    set test1;
+    set testa;
 
 data win32.test3(compress=binary);
-    set test1;
+    set testa;
 
 data win64.test4(compress=no);
-    set test1;
+    set testa;
 
 data win64.test5(compress=char);
-    set test1;
+    set testa;
 
 data win64.test6(compress=binary);
-    set test1;
+    set testa;
 
 data lin64.test7(compress=no);
-    set test1;
+    set testa;
 
 data lin64.test8(compress=binary);
-    set test1;
+    set testa;
 
 data lin64.test9(compress=char);
-    set test1;
+    set testa;
 
 data aix32.test10(compress=no);
-    set test1;
+    set testa;
 
 data aix32.test11(compress=binary);
-    set test1;
+    set testa;
 
 data aix32.test12(compress=char);
-    set test1;
+    set testa;
 
 data aix64.test13(compress=no);
-    set test1;
+    set testa;
 
 data aix64.test14(compress=binary);
-    set test1;
+    set testa;
 
 data aix64.test15(compress=char);
-    set test1;
+    set testa;
+
+data lin64.test16(compress=no);
+    set testb;
 
 run;

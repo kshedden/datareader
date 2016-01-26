@@ -74,11 +74,6 @@ func get_filenames() []string {
 	filenames := make([]string, 0, 10)
 	for _, f := range files {
 		name := f.Name()
-
-		if strings.Contains(name, "binary") {
-			continue
-		}
-
 		if !strings.HasPrefix(name, ".") && (strings.HasSuffix(name, ".dta") || strings.HasSuffix(name, ".sas7bdat")) {
 			filenames = append(filenames, name)
 		}
