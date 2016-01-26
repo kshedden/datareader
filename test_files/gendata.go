@@ -22,6 +22,8 @@ func file1() {
 	w := csv.NewWriter(fid)
 
 	ncol := 100
+	nrow := 10
+
 	rowdata := make([]string, ncol)
 
 	for k := 0; k < ncol; k++ {
@@ -31,7 +33,6 @@ func file1() {
 
 	words := []string{"apple", "dog", "pear", "crocodile", "banana"}
 
-	nrow := 10000
 	for i := 0; i < nrow; i++ {
 
 		for j := 0; j < ncol; j++ {
@@ -71,7 +72,5 @@ func file1() {
 }
 
 func main() {
-
 	file1()
-
 }

@@ -161,9 +161,11 @@ var subheader_signature_to_index = map[string]int{
 	"\xF7\xF7\xF7\xF7":                 rowSizeIndex,
 	"\x00\x00\x00\x00\xF7\xF7\xF7\xF7": rowSizeIndex,
 	"\xF7\xF7\xF7\xF7\x00\x00\x00\x00": rowSizeIndex,
+	"\xF7\xF7\xF7\xF7\xFF\xFF\xFB\xFE": rowSizeIndex,
 	"\xF6\xF6\xF6\xF6":                 columnSizeIndex,
 	"\x00\x00\x00\x00\xF6\xF6\xF6\xF6": columnSizeIndex,
 	"\xF6\xF6\xF6\xF6\x00\x00\x00\x00": columnSizeIndex,
+	"\xF6\xF6\xF6\xF6\xFF\xFF\xFB\xFE": columnSizeIndex,
 	"\x00\xFC\xFF\xFF":                 subheaderCountsIndex,
 	"\xFF\xFF\xFC\x00":                 subheaderCountsIndex,
 	"\x00\xFC\xFF\xFF\xFF\xFF\xFF\xFF": subheaderCountsIndex,
@@ -303,9 +305,8 @@ func min(x, y int) int {
 // algorithm.  It is partially documented here:
 //
 // https://cran.r-project.org/web/packages/sas7bdat/vignettes/sas7bdat.pdf
-func rle_decompress(offset int, length int, result_length int, page []byte) ([]byte, error) {
+func rle_decompress(result_length int, inbuff []byte) ([]byte, error) {
 
-	inbuff := page[offset : offset+length]
 	result := make([]byte, 0, result_length)
 	for len(inbuff) > 0 {
 		control_byte := inbuff[0] & 0xF0
@@ -394,9 +395,7 @@ func rle_decompress(offset int, length int, result_length int, page []byte) ([]b
 // rdc_decompress decompresses data using the Ross Data Compression algorithm:
 //
 // http://collaboration.cmc.ec.gc.ca/science/rpn/biblio/ddj/Website/articles/CUJ/1992/9210/ross/ross.htm
-func rdc_decompress(offset, length, result_length int, inbuff []byte) ([]byte, error) {
-
-	inbuff = inbuff[offset : offset+length]
+func rdc_decompress(result_length int, inbuff []byte) ([]byte, error) {
 
 	var ctrl_bits uint16
 	var ctrl_mask uint16
@@ -466,7 +465,7 @@ func rdc_decompress(offset, length, result_length int, inbuff []byte) ([]byte, e
 	return outbuff, nil
 }
 
-func (sas *SAS7BDAT) get_decompressor() func(int, int, int, []byte) ([]byte, error) {
+func (sas *SAS7BDAT) get_decompressor() func(int, []byte) ([]byte, error) {
 	switch sas.Compression {
 	default:
 		return nil
@@ -755,8 +754,10 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 			}
 			return nil, false
 		} else if sas.is_page_mix_type(sas.current_page_type) {
-			// possible need for alignment correction here
-			offset := bit_offset
+			align_correction := bit_offset + subheader_pointers_offset +
+				sas.current_page_subheaders_count*subheader_pointer_length
+			align_correction = align_correction % 8
+			offset := bit_offset + align_correction
 			offset += subheader_pointers_offset
 			offset += sas.current_page_subheaders_count * subheader_pointer_length
 			offset += sas.current_row_on_page_index * sas.properties.row_length
@@ -1024,7 +1025,7 @@ func (sas *SAS7BDAT) process_page_metadata() error {
 		subheader_index, err := sas.get_subheader_index(subheader_signature,
 			pointer.compression, pointer.ptype)
 		if err != nil {
-			return err
+			return fmt.Errorf("unknown subheader: %v\n", subheader_signature)
 		}
 		err = sas.process_subheader(subheader_index, pointer)
 		if err != nil {
@@ -1129,7 +1130,7 @@ func (sas *SAS7BDAT) get_subheader_index(signature []byte, compression, ptype in
 		if (sas.Compression != "") && f && (ptype == compressed_subheader_type) {
 			index = dataSubheaderIndex
 		} else {
-			return 0, fmt.Errorf("Unknwn subheader signature")
+			return 0, fmt.Errorf("unknown subheader signature")
 		}
 	}
 	return index, nil
@@ -1141,13 +1142,12 @@ func (sas *SAS7BDAT) process_byte_array_with_data(offset, length int) error {
 	if (sas.Compression != "") && (length < sas.properties.row_length) {
 		decompressor := sas.get_decompressor()
 		var err error
-		source, err = decompressor(offset, length, sas.properties.row_length, sas.cached_page)
+		source, err = decompressor(sas.properties.row_length, sas.cached_page[offset:offset+length])
 		if err != nil {
 			return err
 		}
-		offset = 0
 	} else {
-		source = sas.cached_page
+		source = sas.cached_page[offset : offset+length]
 	}
 
 	for j := 0; j < sas.properties.column_count; j++ {
@@ -1155,32 +1155,16 @@ func (sas *SAS7BDAT) process_byte_array_with_data(offset, length int) error {
 		if length == 0 {
 			break
 		}
-		start := offset + sas.column_data_offsets[j]
+		start := sas.column_data_offsets[j]
 		end := start + length
 		temp := source[start:end]
 		if sas.columns[j].ctype == number_column_type {
-
-			//fmat := sas.columns[j].format
-			if false { //fmat in self.TIME_FORMAT_STRINGS {
-				//row_elements.append(self._read_val(
-				//'time', temp, length
-				//))
-			} else if false { //fmat in self.DATE_TIME_FORMAT_STRINGS {
-				//row_elements.append(self._read_val(
-				//'datetime', temp, length
-				//))
-			} else if false { //fmat in self.DATE_FORMAT_STRINGS {
-				//	row_elements.append(self._read_val(
-				//		'date', temp, length
-				//))
+			s := 8 * sas.current_row_in_chunk_index
+			if sas.ByteOrder == binary.LittleEndian {
+				m := 8 - length
+				copy(sas.bytechunk[j][s+m:s+8], temp)
 			} else {
-				s := 8 * sas.current_row_in_chunk_index
-				if sas.ByteOrder == binary.LittleEndian {
-					m := 8 - length
-					copy(sas.bytechunk[j][s+m:s+8], temp)
-				} else {
-					copy(sas.bytechunk[j][s:s+length], temp)
-				}
+				copy(sas.bytechunk[j][s:s+length], temp)
 			}
 		} else {
 			sas.stringchunk[j][sas.current_row_in_chunk_index] = string(temp)
@@ -1214,7 +1198,6 @@ func check_magic_number(b []byte) bool {
 }
 
 func (sas *SAS7BDAT) process_rowsize_subheader(offset, length int) error {
-
 	int_len := sas.properties.int_length
 	lcs_offset := offset
 	lcp_offset := offset
@@ -1235,7 +1218,6 @@ func (sas *SAS7BDAT) process_rowsize_subheader(offset, length int) error {
 	if err != nil {
 		return err
 	}
-
 	sas.properties.col_count_p1, err = sas.read_int(offset+col_count_p1_multiplier*int_len, int_len)
 	if err != nil {
 		return err
@@ -1261,7 +1243,6 @@ func (sas *SAS7BDAT) process_rowsize_subheader(offset, length int) error {
 }
 
 func (sas *SAS7BDAT) process_columnsize_subheader(offset, length int) error {
-
 	int_len := sas.properties.int_length
 	offset += int_len
 	var err error

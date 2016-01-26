@@ -26,6 +26,18 @@ all:
 	${GOBIN}/stattocsv data/test1_117.dta > ref/test1_117.csv
 	${GOBIN}/stattocsv data/test1_118.dta > ref/test1_118.csv
 	${GOBIN}/stattocsv data/stata14_118.dta > ref/stata14_118.csv
-	${GOBIN}/stattocsv data/test1_compression_no.sas7bdat > ref/test1_compression_no.csv
-	${GOBIN}/stattocsv data/test1_compression_char.sas7bdat > ref/test1_compression_char.csv
-	#${GOBIN}/stattocsv data/test1_compression_binary.sas7bdat > ref/test1_compression_binary.csv
+	${GOBIN}/stattocsv data/test1.sas7bdat > ref/test1.csv
+	${GOBIN}/stattocsv data/test2.sas7bdat > ref/test2.csv
+	${GOBIN}/stattocsv data/test3.sas7bdat > ref/test3.csv
+	${GOBIN}/stattocsv data/test4.sas7bdat > ref/test4.csv
+	${GOBIN}/stattocsv data/test5.sas7bdat > ref/test5.csv
+	${GOBIN}/stattocsv data/test6.sas7bdat > ref/test6.csv
+	${GOBIN}/stattocsv data/test7.sas7bdat > ref/test7.csv
+	${GOBIN}/stattocsv data/test8.sas7bdat > ref/test8.csv
+	${GOBIN}/stattocsv data/test9.sas7bdat > ref/test9.csv
+	${GOBIN}/stattocsv data/test10.sas7bdat > ref/test10.csv
+	${GOBIN}/stattocsv data/test11.sas7bdat > ref/test11.csv
+	${GOBIN}/stattocsv data/test12.sas7bdat > ref/test12.csv
+	${GOBIN}/stattocsv data/test13.sas7bdat > ref/test13.csv
+	${GOBIN}/stattocsv data/test14.sas7bdat > ref/test14.csv
+	${GOBIN}/stattocsv data/test15.sas7bdat > ref/test15.csv

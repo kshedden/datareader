@@ -1,7 +1,6 @@
 package datareader
 
 import (
-	"compress/gzip"
 	"crypto/md5"
 	"fmt"
 	"io/ioutil"
@@ -44,16 +43,11 @@ func ref_checksums(filenames []string) map[string][16]byte {
 		infile := filepath.Join("test_files", "ref", file1)
 		fid, err := os.Open(infile)
 		if os.IsNotExist(err) {
-			infile = infile + ".gz"
 			fid, err = os.Open(infile)
 			if err != nil {
 				panic(err)
 			}
-			rdr, err := gzip.NewReader(fid)
-			if err != nil {
-				panic(err)
-			}
-			b, err = ioutil.ReadAll(rdr)
+			b, err = ioutil.ReadAll(fid)
 			if err != nil {
 				panic(err)
 			}
