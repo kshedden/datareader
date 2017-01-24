@@ -8,10 +8,11 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"github.com/kshedden/datareader"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/kshedden/datareader"
 )
 
 func do_conversion(rdr datareader.Statfilereader) {
@@ -62,19 +63,19 @@ func do_conversion(rdr datareader.Statfilereader) {
 		for i := 0; i < nrow; i++ {
 			for j := 0; j < ncol; j++ {
 				if numbercols[j] != nil {
-					if (missing[j] == nil) || (missing[j][i] == false) {
+					if missing[j] == nil || missing[j][i] == false {
 						row[j] = fmt.Sprintf("%v", numbercols[j][i])
 					} else {
 						row[j] = ""
 					}
 				} else if stringcols[j] != nil {
-					if (missing[j] == nil) || (missing[j][i] == false) {
+					if missing[j] == nil || missing[j][i] == false {
 						row[j] = fmt.Sprintf("%v", stringcols[j][i])
 					} else {
 						row[j] = ""
 					}
 				} else if timecols[j] != nil {
-					if (missing[j] == nil) || (missing[j][i] == false) {
+					if missing[j] == nil || missing[j][i] == false {
 						row[j] = fmt.Sprintf("%v", timecols[j][i])
 					} else {
 						row[j] = ""
