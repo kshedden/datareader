@@ -54,7 +54,7 @@ x, m, _ := ds[0].AsFloat64Slice()
 // If column 1 contains text data
 // x is a []string containing the dta
 // m is a []bool containing missingness indicators
-x, m, _ := ds[0].AsStringSlice()
+x, m, _ := ds[1].AsStringSlice()
 ```
 
 ## Stata
