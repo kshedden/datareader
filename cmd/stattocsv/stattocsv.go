@@ -64,13 +64,13 @@ func do_conversion(rdr datareader.Statfilereader) {
 			for j := 0; j < ncol; j++ {
 				if numbercols[j] != nil {
 					if missing[j] == nil || missing[j][i] == false {
-						row[j] = fmt.Sprintf("%v", numbercols[j][i])
+						row[j] = fmt.Sprintf("%f", numbercols[j][i])
 					} else {
 						row[j] = ""
 					}
 				} else if stringcols[j] != nil {
 					if missing[j] == nil || missing[j][i] == false {
-						row[j] = fmt.Sprintf("%v", stringcols[j][i])
+						row[j] = fmt.Sprintf("%s", stringcols[j][i])
 					} else {
 						row[j] = ""
 					}
