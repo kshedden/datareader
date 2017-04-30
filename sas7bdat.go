@@ -662,6 +662,7 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 		default:
 			panic("Unknown column type")
 		case number_column_type:
+			// New allocation to support concurrent processing of results
 			vec := make([]float64, n)
 			buf := bytes.NewReader(sas.bytechunk[j][0 : 8*n])
 			binary.Read(buf, sas.ByteOrder, &vec)
@@ -683,7 +684,9 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 			if sas.TrimStrings {
 				sas.trimStrings(n, j)
 			}
-			rslt[j], _ = NewSeries(name, sas.stringchunk[j][0:n], miss)
+			vec := make([]string, n)
+			copy(vec, sas.stringchunk[j][0:n])
+			rslt[j], _ = NewSeries(name, vec, miss)
 		}
 	}
 

@@ -29,7 +29,8 @@ type Series struct {
 
 // NewSeries returns a new Series object with the given name and data
 // contents.  The data parameter must be an array of floats, ints, or
-// strings.
+// strings.  The underlying data is not copied, so changes to data will
+// impact the series.
 func NewSeries(name string, data interface{}, missing []bool) (*Series, error) {
 
 	var length int
