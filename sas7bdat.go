@@ -618,18 +618,20 @@ func (sas *SAS7BDAT) Read(num_rows int) ([]*Series, error) {
 		return nil, nil
 	}
 
-	if sas.bytechunk == nil {
-		sas.bytechunk = make([][]byte, sas.properties.column_count)
-		sas.stringchunk = make([][]string, sas.properties.column_count)
-		for j := 0; j < sas.properties.column_count; j++ {
-			switch sas.column_types[j] {
-			default:
-				return nil, fmt.Errorf("unknown column type")
-			case number_column_type:
-				sas.bytechunk[j] = make([]byte, 8*num_rows)
-			case string_column_type:
-				sas.stringchunk[j] = make([]string, num_rows)
-			}
+	// Reallocate each time so the results are backed by
+	// completely independent memory with each call to read (to
+	// support concurrent processing of results while continuing
+	// reading).
+	sas.bytechunk = make([][]byte, sas.properties.column_count)
+	sas.stringchunk = make([][]string, sas.properties.column_count)
+	for j := 0; j < sas.properties.column_count; j++ {
+		switch sas.column_types[j] {
+		default:
+			return nil, fmt.Errorf("unknown column type")
+		case number_column_type:
+			sas.bytechunk[j] = make([]byte, 8*num_rows)
+		case string_column_type:
+			sas.stringchunk[j] = make([]string, num_rows)
 		}
 	}
 
@@ -662,7 +664,6 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 		default:
 			panic("Unknown column type")
 		case number_column_type:
-			// New allocation to support concurrent processing of results
 			vec := make([]float64, n)
 			buf := bytes.NewReader(sas.bytechunk[j][0 : 8*n])
 			binary.Read(buf, sas.ByteOrder, &vec)
@@ -684,9 +685,7 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 			if sas.TrimStrings {
 				sas.trimStrings(n, j)
 			}
-			vec := make([]string, n)
-			copy(vec, sas.stringchunk[j][0:n])
-			rslt[j], _ = NewSeries(name, vec, miss)
+			rslt[j], _ = NewSeries(name, sas.stringchunk[j][0:n], miss)
 		}
 	}
 
