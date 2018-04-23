@@ -15,14 +15,15 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	xencoding "golang.org/x/text/encoding"
-	"golang.org/x/text/encoding/charmap"
 	"io"
 	"math"
 	"os"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	xencoding "golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/charmap"
 )
 
 // SAS7BDAT represents a SAS data file in SAS7BDAT format.
@@ -797,7 +798,7 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 			}
 			return nil, false
 		} else {
-			return fmt.Errorf("unknown page type: %s", sas.current_page_type), false
+			return fmt.Errorf("unknown page type: %d", sas.current_page_type), false
 		}
 	}
 	return nil, false
