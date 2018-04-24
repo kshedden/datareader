@@ -11,12 +11,13 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/kshedden/datareader"
 	"io"
 	"math"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/kshedden/datareader"
 )
 
 func do_split(rdr datareader.Statfilereader, col_dir string, mode string) {
@@ -100,7 +101,7 @@ func main() {
 		return
 	}
 
-	in_file := flag.String("in", "", "A SAS7BDAT or Stata dta file name")
+	infile := flag.String("in", "", "A SAS7BDAT or Stata dta file name")
 	col_dir := flag.String("out", "", "A directory for writing the columns")
 	mode := flag.String("mode", "text", "Write numeric data as 'text' or 'binary'")
 
@@ -111,20 +112,20 @@ func main() {
 		return
 	}
 
-	fl := strings.ToLower(*in_file)
+	fl := strings.ToLower(*infile)
 	filetype := ""
 	if strings.HasSuffix(fl, "sas7bdat") {
 		filetype = "sas"
 	} else if strings.HasSuffix(fl, "dta") {
 		filetype = "stata"
 	} else {
-		os.Stderr.WriteString(fmt.Sprintf("%s file cannot be read", *in_file))
+		os.Stderr.WriteString(fmt.Sprintf("%s file cannot be read", *infile))
 		return
 	}
 
-	r, err := os.Open(*in_file)
+	r, err := os.Open(*infile)
 	if err != nil {
-		os.Stderr.WriteString(fmt.Sprintf("unable to open %s\n", in_file))
+		os.Stderr.WriteString(fmt.Sprintf("unable to open %s\n", *infile))
 	}
 	defer r.Close()
 
