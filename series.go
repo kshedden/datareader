@@ -495,6 +495,16 @@ func (ser *Series) ToString() *Series {
 	switch ser.data.(type) {
 	default:
 		panic(fmt.Sprintf("unknown data type %T in ToString", ser.data))
+	case []time.Time:
+		x := make([]string, n)
+		y := ser.data.([]time.Time)
+		for i := 0; i < n; i++ {
+			if !cmiss[i] {
+				x[i] = y[i].UTC().Format("2006-01-02 15:04:05")
+			}
+		}
+		s, _ := NewSeries(ser.Name, x, cmiss)
+		return s
 	case []string:
 		return ser
 	case []float64:

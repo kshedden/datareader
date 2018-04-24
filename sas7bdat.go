@@ -802,7 +802,7 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 			}
 			return nil, false
 		} else {
-			return fmt.Errorf("unknown page type: %s", sas.current_page_type), false
+			return fmt.Errorf("unknown page type: %d", sas.current_page_type), false
 		}
 	}
 	return nil, false
