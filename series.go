@@ -29,7 +29,8 @@ type Series struct {
 
 // NewSeries returns a new Series object with the given name and data
 // contents.  The data parameter must be an array of floats, ints, or
-// strings.
+// strings.  The underlying data is not copied, so changes to data will
+// impact the series.
 func NewSeries(name string, data interface{}, missing []bool) (*Series, error) {
 
 	var length int
@@ -611,4 +612,26 @@ func (ser *Series) Date_from_duration(base time.Time, units string) (*Series, er
 		return nil, err
 	}
 	return rslt, nil
+}
+
+func (ser *Series) AsFloat64Slice() ([]float64, []bool, error) {
+
+	v, ok := ser.data.([]float64)
+	if !ok {
+		msg := fmt.Sprintf("can't convert %T to []float64", ser.data)
+		return nil, nil, fmt.Errorf(msg)
+	}
+
+	return v, ser.missing, nil
+}
+
+func (ser *Series) AsStringSlice() ([]string, []bool, error) {
+
+	v, ok := ser.data.([]string)
+	if !ok {
+		msg := fmt.Sprintf("can't convert %T to []string", ser.data)
+		return nil, nil, fmt.Errorf(msg)
+	}
+
+	return v, ser.missing, nil
 }

@@ -19,7 +19,7 @@ const (
 )
 
 // Not really a test function, used to generate md5 sums for the results.
-func Test_generate_columnize(t *testing.T) {
+func TestGenerateColumnize(t *testing.T) {
 
 	if !generate_columnize {
 		return
@@ -95,7 +95,7 @@ func columnize_base(fname, mode string) [16]byte {
 	return m
 }
 
-func Test_columnize_1(t *testing.T) {
+func TestColumnize1(t *testing.T) {
 
 	if generate_columnize {
 		return

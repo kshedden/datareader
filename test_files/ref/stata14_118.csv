@@ -1,6 +1,6 @@
 Things,Cities,Unicode_Cities_Strl,Ints,Floats,Bytes,Longs
-Cat,Bogota,Bogotá,1,1,option b Ünicode,1
+Cat,Bogota,Bogotá,1.000000,1.000000,option b Ünicode,1.000000
 Dog,Boston,Uzunköprü,,,,
-Plane,Rome,Tromsø,0,0,option a,0
-Potato,Tokyo,Elâzığ,-4,4,4,4
-,,,0,0.33329999446868896,option a,0.3333333333333333
+Plane,Rome,Tromsø,0.000000,0.000000,option a,0.000000
+Potato,Tokyo,Elâzığ,-4.000000,4.000000,4,4.000000
+,,,0.000000,0.333300,option a,0.333333

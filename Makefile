@@ -1,4 +1,4 @@
 all:
 	go install
-	go install commands/columnize.go
-	go install commands/stattocsv.go
+	go install cmd/columnize/columnize.go
+	go install cmd/stattocsv/stattocsv.go

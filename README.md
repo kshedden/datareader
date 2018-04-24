@@ -4,8 +4,8 @@ datareader : read SAS and Stata files in Go
 __datareader__ is a pure [Go](https://golang.org) (Golang) package
 that can read binary SAS format (SAS7BDAT) and Stata format (dta) data
 files into native Go data structures.  For non-Go users, there are two
-command line utilities that convert SAS and Stata files into two text
-file formats.
+command line utilities that convert SAS and Stata files into text file
+formats.
 
 The Stata reader is based on the Stata documentation for the [dta file
 format](http://www.stata.com/help.cgi?dta) and supports dta versions
@@ -19,7 +19,7 @@ package](https://github.com/BioStatMatt/sas7bdat).  Also see
 [here](https://cran.r-project.org/web/packages/sas7bdat/vignettes/sas7bdat.pdf)
 for more information about the SAS7BDAT file structure.
 
-This package also contains a simple column-oriented data container
+This package also provides a simple column-oriented data container
 called a `Series`.  Both the SAS reader and Stata reader return the
 data as an array of `Series` objects, corresponding to the columns of
 the data file.  These can in turn be converted to other formats as
@@ -43,8 +43,18 @@ import (
 f, _ := os.Open("filename.sas7bdat")
 sas, _ := datareader.NewSAS7BDATReader(f)
 
-// Read the first 10000 records
+// Read the first 10000 records (rows)
 ds, _ := sas.Read(10000)
+
+// If column 0 contains numeric data
+// x is a []float64 containing the dta
+// m is a []bool containing missingness indicators
+x, m, _ := ds[0].AsFloat64Slice()
+
+// If column 1 contains text data
+// x is a []string containing the dta
+// m is a []bool containing missingness indicators
+x, m, _ := ds[1].AsStringSlice()
 ```
 
 ## Stata
@@ -62,7 +72,7 @@ import (
 f,_ := os.Open("filename.dta")
 stata, _ := datareader.NewStataReader(f)
 
-// Read the first 10000 records
+// Read the first 10000 records (rows)
 ds, _ := stata.Read(10000)
 ```
 
@@ -79,6 +89,7 @@ f, _ := os.Open("filename.csv")
 rt := datareader.NewCSVReader(f)
 rt.HasHeader = true
 dt, _ := rt.Read(-1)
+// obtain data from dt as in the SAS example above
 ```
 
 ## Commands
@@ -105,10 +116,6 @@ floats) or text format (binary is considerably faster).
 > columnize -in=file.sas7bdat -out=cols -mode=binary
 > columnize -in=file.dta -out=cols -mode=text
 ```
-
-## TODO/known issues
-
-In the SAS reader, text data are not decoded.
 
 ## Testing
 
