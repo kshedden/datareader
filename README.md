@@ -96,8 +96,11 @@ dt, _ := rt.Read(-1)
 
 Two command-line utilities use the datareader package to allow
 conversion of SAS and Stata datasets to other formats without using
-Go.  Run the Makefile to compile these commands.  The executables will
-be copied into your GOBIN directory.
+Go.  Executables for several OS's and architectures are contained in
+the `bin` directory.  The script used to cross-compile these binaries
+is `build.sh`.  To build and install the commands for your local
+architecture only, run the Makefile (the executables will be copied
+into your GOBIN directory).
 
 The `stattocsv` command converts a SAS7BDAT or Stata dta file to a csv
 file, it can be used as follows:
