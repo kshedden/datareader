@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func run_stattocsv(filenames []string) map[string][16]byte {
+func runStattocsv(filenames []string) map[string][16]byte {
 
 	checksums := make(map[string][16]byte)
 
@@ -21,7 +21,7 @@ func run_stattocsv(filenames []string) map[string][16]byte {
 		args := []string{infile}
 		rslt, err := exec.Command(cmd_name, args...).Output()
 		if err != nil {
-			os.Stderr.WriteString(fmt.Sprintf("run_stattocsv:: %v %v\n", cmd_name, infile))
+			os.Stderr.WriteString(fmt.Sprintf("runStattocsv:: %v %v\n", cmd_name, infile))
 			panic(err)
 		}
 		checksums[file] = md5.Sum(rslt)
@@ -30,7 +30,7 @@ func run_stattocsv(filenames []string) map[string][16]byte {
 	return checksums
 }
 
-func ref_checksums(filenames []string) map[string][16]byte {
+func refChecksums(filenames []string) map[string][16]byte {
 
 	checksums := make(map[string][16]byte)
 
@@ -66,7 +66,7 @@ func ref_checksums(filenames []string) map[string][16]byte {
 	return checksums
 }
 
-func get_filenames() []string {
+func getFilenames() []string {
 	files, err := ioutil.ReadDir(filepath.Join("test_files", "data"))
 	if err != nil {
 		panic(err)
@@ -82,11 +82,11 @@ func get_filenames() []string {
 	return filenames
 }
 
-func Test_stattocsv_1(t *testing.T) {
+func TestStattocsv1(t *testing.T) {
 
-	test_files := get_filenames()
-	new_checksums := run_stattocsv(test_files)
-	old_checksums := ref_checksums(test_files)
+	test_files := getFilenames()
+	new_checksums := runStattocsv(test_files)
+	old_checksums := refChecksums(test_files)
 
 	for ky, _ := range old_checksums {
 

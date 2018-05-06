@@ -27,11 +27,11 @@ func TestGenerateColumnize(t *testing.T) {
 
 	ms := make(map[string][16]byte)
 
-	all_test_files := get_filenames()
+	all_test_files := getFilenames()
 
 	for _, f := range all_test_files {
 		for _, mode := range []string{"text", "binary"} {
-			m := columnize_base(f, mode)
+			m := columnizeBase(f, mode)
 			k := f + "::" + mode
 			ms[k] = m
 		}
@@ -51,7 +51,7 @@ func TestGenerateColumnize(t *testing.T) {
 	cf.Close()
 }
 
-func columnize_base(fname, mode string) [16]byte {
+func columnizeBase(fname, mode string) [16]byte {
 
 	outpath := filepath.Join("test_files", "tmp", "cols")
 	os.RemoveAll(outpath)
@@ -114,12 +114,12 @@ func TestColumnize1(t *testing.T) {
 	}
 	json.Unmarshal(b, &checksum)
 
-	all_test_files := get_filenames()
+	all_test_files := getFilenames()
 
 	for _, f := range all_test_files {
 		for _, mode := range []string{"text", "binary"} {
 
-			m := columnize_base(f, mode)
+			m := columnizeBase(f, mode)
 			k := f + "::" + mode
 			m1 := checksum[k]
 
