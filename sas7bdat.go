@@ -815,7 +815,7 @@ func (sas *SAS7BDAT) read_next_page() (error, bool) {
 	if n <= 0 {
 		return nil, true
 	}
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return err, false
 	}
 
