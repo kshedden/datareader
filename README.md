@@ -92,10 +92,10 @@ dt, _ := rt.Read(-1)
 // obtain data from dt as in the SAS example above
 ```
 
-## Commands
+## Command line utilities
 
-Two command-line utilities use the datareader package to allow
-conversion of SAS and Stata datasets to other formats without using
+We provide two command-line utilities allowing conversion of SAS and
+Stata datasets to other formats without using
 Go.  Executables for several OS's and architectures are contained in
 the `bin` directory.  The script used to cross-compile these binaries
 is `build.sh`.  To build and install the commands for your local
