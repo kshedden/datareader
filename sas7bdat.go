@@ -603,7 +603,7 @@ func (sas *SAS7BDAT) read_int(offset, width int) (int, error) {
 // Read returns up to num_rows rows of data from the SAS7BDAT file, as
 // an array of Series objects.  The Series data types are either
 // float64 or string.  If num_rows is negative, the remainder of the
-// file is read.  Returns nil, nil when the no rows remain.
+// file is read.  Returns (nil, io.EOF) when no rows remain.
 //
 // SAS strings variables have a fixed width.  By default, right
 // whitespace is trimmed from each string, but this can be turned off
@@ -615,7 +615,7 @@ func (sas *SAS7BDAT) Read(num_rows int) ([]*Series, error) {
 	}
 
 	if sas.current_row_in_file_index >= sas.row_count {
-		return nil, nil
+		return nil, io.EOF
 	}
 
 	// Reallocate each time so the results are backed by
