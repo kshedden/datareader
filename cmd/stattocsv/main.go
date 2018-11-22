@@ -16,7 +16,7 @@ import (
 	"github.com/kshedden/datareader"
 )
 
-func do_conversion(rdr datareader.Statfilereader) {
+func doConversion(rdr datareader.Statfilereader) {
 
 	w := csv.NewWriter(os.Stdout)
 
@@ -49,14 +49,14 @@ func do_conversion(rdr datareader.Statfilereader) {
 			missing[j] = chunk[j].Missing()
 			dcol := chunk[j].Data()
 			switch dcol.(type) {
-			default:
-				panic(fmt.Sprintf("unknown type: %T", dcol))
 			case []time.Time:
 				timecols[j] = dcol.([]time.Time)
 			case []float64:
 				numbercols[j] = dcol.([]float64)
 			case []string:
 				stringcols[j] = dcol.([]string)
+			default:
+				panic(fmt.Sprintf("unknown type: %T", dcol))
 			}
 		}
 
@@ -85,6 +85,7 @@ func do_conversion(rdr datareader.Statfilereader) {
 			w.Write(row)
 		}
 	}
+
 	w.Flush()
 }
 
@@ -103,6 +104,7 @@ func main() {
 	}
 	defer f.Close()
 
+	// Determine the file type
 	fl := strings.ToLower(fname)
 	filetype := ""
 	if strings.HasSuffix(fl, "sas7bdat") {
@@ -114,6 +116,7 @@ func main() {
 		return
 	}
 
+	// Get a reader for either a Stata or SAS file
 	var rdr datareader.Statfilereader
 	if filetype == "sas" {
 		sas, err := datareader.NewSAS7BDATReader(f)
@@ -134,5 +137,5 @@ func main() {
 		rdr = stata
 	}
 
-	do_conversion(rdr)
+	doConversion(rdr)
 }

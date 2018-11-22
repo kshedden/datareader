@@ -11,17 +11,19 @@ import (
 	"testing"
 )
 
+// runStattocsv runs stattocsv on all the files in the test_files
+// directory, and calculates an md5 checksum on each output file.
 func runStattocsv(filenames []string) map[string][16]byte {
 
 	checksums := make(map[string][16]byte)
 
-	cmd_name := filepath.Join(os.Getenv("GOBIN"), "stattocsv")
+	cmdName := filepath.Join(os.Getenv("GOBIN"), "stattocsv")
 	for _, file := range filenames {
 		infile := filepath.Join("test_files", "data", file)
 		args := []string{infile}
-		rslt, err := exec.Command(cmd_name, args...).Output()
+		rslt, err := exec.Command(cmdName, args...).Output()
 		if err != nil {
-			os.Stderr.WriteString(fmt.Sprintf("runStattocsv:: %v %v\n", cmd_name, infile))
+			os.Stderr.WriteString(fmt.Sprintf("runStattocsv:: %v %v\n", cmdName, infile))
 			panic(err)
 		}
 		checksums[file] = md5.Sum(rslt)
