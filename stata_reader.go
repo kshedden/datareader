@@ -509,10 +509,12 @@ func (rdr *StataReader) read_vartypes() error {
 }
 
 func (rdr *StataReader) read_vartypes_16() error {
-	var err error
-	rdr.reader.Seek(rdr.seek_vartypes+16, 0)
+	if _, err := rdr.reader.Seek(rdr.seek_vartypes+16, 0); err != nil {
+		panic(err)
+	}
 	rdr.var_types = make([]int, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
+		var err error
 		rdr.var_types[k], err = rdr.read_uint(2)
 		if err != nil {
 			return err
@@ -574,11 +576,15 @@ func (rdr *StataReader) do_read_formats(bufsize int, seek bool) {
 
 	buf := make([]byte, bufsize)
 	if seek {
-		rdr.reader.Seek(rdr.seek_formats+9, 0)
+		if _, err := rdr.reader.Seek(rdr.seek_formats+9, 0); err != nil {
+			panic(err)
+		}
 	}
 	rdr.Formats = make([]string, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
-		rdr.reader.Read(buf)
+		if _, err := rdr.reader.Read(buf); err != nil {
+			panic(err)
+		}
 		rdr.Formats[k] = string(partition(buf))
 	}
 
@@ -606,14 +612,14 @@ func partition(b []byte) []byte {
 // variable names for the dta file format.
 func (rdr *StataReader) read_varnames() error {
 	var err error
-	switch {
-	case rdr.FormatVersion == 118:
+	switch rdr.FormatVersion {
+	case 118:
 		err = rdr.do_read_varnames(129, true)
-	case rdr.FormatVersion == 117:
+	case 117:
 		err = rdr.do_read_varnames(33, true)
-	case rdr.FormatVersion == 115:
+	case 115:
 		err = rdr.do_read_varnames(33, false)
-	case rdr.FormatVersion == 114:
+	case 114:
 		err = rdr.do_read_varnames(33, false)
 	default:
 		return fmt.Errorf("unknown format version %v in read_varnames", rdr.FormatVersion)
@@ -622,10 +628,15 @@ func (rdr *StataReader) read_varnames() error {
 }
 
 func (rdr *StataReader) do_read_varnames(bufsize int, seek bool) error {
+
 	buf := make([]byte, bufsize)
 	if seek {
-		rdr.reader.Seek(rdr.seek_varnames+10, 0)
+		_, err := rdr.reader.Seek(rdr.seek_varnames+10, 0)
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	rdr.column_names = make([]string, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
 		n, err := rdr.reader.Read(buf)
@@ -642,6 +653,7 @@ func (rdr *StataReader) do_read_varnames(bufsize int, seek bool) error {
 }
 
 func (rdr *StataReader) read_value_label_names() {
+
 	switch rdr.FormatVersion {
 	case 118:
 		rdr.doReadValueLabelNames(129, true)
@@ -657,10 +669,12 @@ func (rdr *StataReader) read_value_label_names() {
 }
 
 func (rdr *StataReader) doReadValueLabelNames(bufsize int, seek bool) {
+
 	buf := make([]byte, bufsize)
 	if seek {
 		rdr.reader.Seek(rdr.seek_value_label_names+19, 0)
 	}
+
 	rdr.ValueLabelNames = make([]string, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
 		rdr.reader.Read(buf)
@@ -669,6 +683,7 @@ func (rdr *StataReader) doReadValueLabelNames(bufsize int, seek bool) {
 }
 
 func (rdr *StataReader) readVariableLabels() {
+
 	switch rdr.FormatVersion {
 	case 118:
 		rdr.doReadVariableLabels(321, true)
@@ -685,10 +700,15 @@ func (rdr *StataReader) readVariableLabels() {
 }
 
 func (rdr *StataReader) doReadVariableLabels(bufsize int, seek bool) {
+
 	buf := make([]byte, bufsize)
 	if seek {
-		rdr.reader.Seek(rdr.seek_variable_labels+17, 0)
+		_, err := rdr.reader.Seek(rdr.seek_variable_labels+17, 0)
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	rdr.ColumnNamesLong = make([]string, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
 		rdr.reader.Read(buf)
@@ -699,9 +719,12 @@ func (rdr *StataReader) doReadVariableLabels(bufsize int, seek bool) {
 func (rdr *StataReader) readValueLabels() {
 
 	vl := make(map[string]map[int32]string)
-
 	buf := make([]byte, 321)
-	rdr.reader.Seek(rdr.seek_value_labels+14, 0)
+
+	if _, err := rdr.reader.Seek(rdr.seek_value_labels+14, 0); err != nil {
+		panic(err)
+	}
+
 	var n int32
 	var textlen int32
 	vlw := value_label_length[rdr.FormatVersion]
@@ -712,7 +735,9 @@ func (rdr *StataReader) readValueLabels() {
 			break
 		}
 
-		rdr.reader.Seek(4, 1)
+		if _, err := rdr.reader.Seek(4, 1); err != nil {
+			panic(err)
+		}
 		rdr.reader.Read(buf[0:vlw])
 		labname := string(partition(buf[0:vlw]))
 		rdr.reader.Seek(3, 1)
