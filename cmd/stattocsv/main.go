@@ -8,6 +8,7 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -26,10 +27,9 @@ func do_conversion(rdr datareader.Statfilereader) {
 
 	for {
 		chunk, err := rdr.Read(1000)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			panic(err)
-		}
-		if chunk == nil {
+		} else if chunk == nil || err == io.EOF {
 			break
 		}
 
