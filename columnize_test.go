@@ -57,7 +57,7 @@ func columnizeBase(fname, mode string) [16]byte {
 
 	outpath := filepath.Join("test_files", "tmp", "cols")
 	os.RemoveAll(outpath)
-	if err := os.Mkdir(outpath, os.ModeDir); err != nil {
+	if err := os.MkdirAll(outpath, os.ModeDir); err != nil {
 		panic(err)
 	}
 
