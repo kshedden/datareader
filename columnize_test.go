@@ -60,7 +60,7 @@ func columnizeBase(fname, mode string) [16]byte {
 	if err := os.RemoveAll(outpath); err != nil {
 		panic(err)
 	}
-	if err := os.MkdirAll(outpath, os.ModeDir); err != nil {
+	if err := os.MkdirAll(outpath, 0700); err != nil {
 		panic(err)
 	}
 
