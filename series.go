@@ -566,6 +566,10 @@ func (ser *Series) ToString() *Series {
 	}
 }
 
+// NullStringMissing returns a copy of a string series in which
+// zero-length strings are treated as missing values.  If the
+// method is applied to a series that is not of string type,
+// the series is returned unchanged.
 func (ser *Series) NullStringMissing() *Series {
 
 	n := ser.length
@@ -676,6 +680,8 @@ func (ser *Series) AsFloat64Slice() ([]float64, []bool, error) {
 	return v, ser.missing, nil
 }
 
+// AsStringSlice returns the series data as slices for the values,
+// and the missing data indicators.
 func (ser *Series) AsStringSlice() ([]string, []bool, error) {
 
 	v, ok := ser.data.([]string)

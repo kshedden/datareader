@@ -27,9 +27,9 @@ func TestGenerateColumnize(t *testing.T) {
 
 	ms := make(map[string][16]byte)
 
-	all_test_files := getFilenames()
+	allTestFiles := getFilenames()
 
-	for _, f := range all_test_files {
+	for _, f := range allTestFiles {
 		for _, mode := range []string{"text", "binary"} {
 			m := columnizeBase(f, mode)
 			k := f + "::" + mode

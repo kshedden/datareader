@@ -126,7 +126,7 @@ func main() {
 	}
 
 	infile := flag.String("in", "", "A SAS7BDAT or Stata dta file name")
-	col_dir := flag.String("out", "", "A directory for writing the columns")
+	colDir := flag.String("out", "", "A directory for writing the columns")
 	mode := flag.String("mode", "text", "Write numeric data as 'text' or 'binary'")
 
 	flag.Parse()
@@ -168,5 +168,5 @@ func main() {
 		}
 	}
 
-	doSplit(rdr, *col_dir, *mode)
+	doSplit(rdr, *colDir, *mode)
 }
