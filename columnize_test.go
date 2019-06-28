@@ -60,19 +60,21 @@ func columnizeBase(fname, mode string) [16]byte {
 	if err := os.RemoveAll(outpath); err != nil {
 		panic(err)
 	}
-	if err := os.MkdirAll(outpath, 0700); err != nil {
+	if err := os.MkdirAll(outpath, os.ModePerm); err != nil {
 		panic(err)
 	}
 
 	// Run columnize on the file
 	cmdName := filepath.Join(os.Getenv("GOBIN"), "columnize")
-	infile := filepath.Join("test_files", "tmp", "cols", fname)
+	infile := filepath.Join("test_files", "data", fname)
 	args := []string{
 		fmt.Sprintf("-in=%s", infile),
 		fmt.Sprintf("-out=%s", outpath),
 		fmt.Sprintf("-mode=%s", mode),
 	}
-	if _, err := exec.Command(cmdName, args...).Output(); err != nil {
+	cmd := exec.Command(cmdName, args...)
+	cmd.Stderr = os.Stderr
+	if _, err := cmd.Output(); err != nil {
 		panic(err)
 	}
 
@@ -144,6 +146,8 @@ func TestColumnize1(t *testing.T) {
 
 			for j := range m {
 				if m[j] != m1[j] {
+					fmt.Printf("Failing %s    mode: %s\n", f, mode)
+					fmt.Printf("Expected %v, got %v\n", m[j], m1[j])
 					t.Fail()
 				}
 			}

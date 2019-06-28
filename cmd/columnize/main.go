@@ -25,6 +25,7 @@ func doSplit(rdr datareader.Statfilereader, colDir string, mode string) {
 	ncol := len(rdr.ColumnNames())
 	columns := make([]io.Writer, ncol)
 
+	// Create a file to contain the column names
 	cf, err := os.Create(filepath.Join(colDir, "columns.txt"))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("unable to create file in %s: %v\n", colDir, err))
@@ -32,12 +33,14 @@ func doSplit(rdr datareader.Statfilereader, colDir string, mode string) {
 	}
 	defer cf.Close()
 
+	// Write the column names
 	for i, c := range rdr.ColumnNames() {
-		if _, err := cf.WriteString(fmt.Sprintf("%d,%s\n", i+1, c)); err != nil {
+		if _, err := cf.WriteString(fmt.Sprintf("%d,%s\n", i, c)); err != nil {
 			panic(err)
 		}
 	}
 
+	// Create a writer for each column
 	for j := range rdr.ColumnNames() {
 		fn := filepath.Join(colDir, fmt.Sprintf("%d", j))
 		f, err := os.Create(fn)
@@ -68,15 +71,16 @@ func doSplit(rdr datareader.Statfilereader, colDir string, mode string) {
 			ds := chunk[j].Data()
 			switch ds.(type) {
 			case []float64:
-				if mode == "binary" {
-					buf := new(bytes.Buffer)
+				switch mode {
+				case "binary":
+					var buf bytes.Buffer
 					for i, x := range ds.([]float64) {
-						if (missing[j] == nil) || !missing[j][i] {
-							if err := binary.Write(buf, binary.LittleEndian, x); err != nil {
+						if missing[j] == nil || !missing[j][i] {
+							if err := binary.Write(&buf, binary.LittleEndian, x); err != nil {
 								panic(err)
 							}
 						} else {
-							if err := binary.Write(buf, binary.LittleEndian, math.NaN()); err != nil {
+							if err := binary.Write(&buf, binary.LittleEndian, math.NaN()); err != nil {
 								panic(err)
 							}
 						}
@@ -84,10 +88,10 @@ func doSplit(rdr datareader.Statfilereader, colDir string, mode string) {
 					if _, err := columns[j].Write(buf.Bytes()); err != nil {
 						panic(err)
 					}
-				} else {
+				case "text":
 					vec := ds.([]float64)
 					for i, x := range vec {
-						if (missing[j] == nil) || !missing[j][i] {
+						if missing[j] == nil || !missing[j][i] {
 							if _, err := columns[j].Write([]byte(fmt.Sprintf("%v\n", x))); err != nil {
 								panic(err)
 							}
@@ -97,6 +101,8 @@ func doSplit(rdr datareader.Statfilereader, colDir string, mode string) {
 							}
 						}
 					}
+				default:
+					panic("Invalid mode")
 				}
 			case []string:
 				for _, x := range ds.([]string) {

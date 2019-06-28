@@ -21,7 +21,9 @@ func runStattocsv(filenames []string) map[string][16]byte {
 	for _, file := range filenames {
 		infile := filepath.Join("test_files", "data", file)
 		args := []string{infile}
-		rslt, err := exec.Command(cmdName, args...).Output()
+		cmd := exec.Command(cmdName, args...)
+		cmd.Stderr = os.Stderr
+		rslt, err := cmd.Output()
 		if err != nil {
 			os.Stderr.WriteString(fmt.Sprintf("runStattocsv:: %v %v\n", cmdName, infile))
 			panic(err)
