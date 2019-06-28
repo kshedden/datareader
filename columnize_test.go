@@ -55,23 +55,32 @@ func TestGenerateColumnize(t *testing.T) {
 
 func columnizeBase(fname, mode string) [16]byte {
 
+	// Clear the workspace and set up the subdirectories.
 	outpath := filepath.Join("test_files", "tmp", "cols")
-	os.RemoveAll(outpath)
+	if err := os.RemoveAll(outpath); err != nil {
+		panic(err)
+	}
 	if err := os.MkdirAll(outpath, os.ModeDir); err != nil {
 		panic(err)
 	}
 
+	// Run columnize on the file
 	cmdName := filepath.Join(os.Getenv("GOBIN"), "columnize")
 	infile := filepath.Join("test_files", "tmp", "cols", fname)
-	args := []string{fmt.Sprintf("-in=%s", infile), fmt.Sprintf("-out=%s", outpath),
-		fmt.Sprintf("-mode=%s", mode)}
-	_, err := exec.Command(cmdName, args...).Output()
-	if err != nil {
+	args := []string{
+		fmt.Sprintf("-in=%s", infile),
+		fmt.Sprintf("-out=%s", outpath),
+		fmt.Sprintf("-mode=%s", mode),
+	}
+	if _, err := exec.Command(cmdName, args...).Output(); err != nil {
 		panic(err)
 	}
 
-	files, _ := ioutil.ReadDir(outpath)
-	fileNames := make([]string, 0, 10)
+	files, err := ioutil.ReadDir(outpath)
+	if err != nil {
+		panic(err)
+	}
+	var fileNames []string
 	for _, v := range files {
 		fileNames = append(fileNames, v.Name())
 	}
@@ -82,21 +91,25 @@ func columnizeBase(fname, mode string) [16]byte {
 		if strings.HasPrefix(f, ".") {
 			continue
 		}
+
 		gname := filepath.Join("test_files", "tmp", "cols", f)
 		g, err := os.Open(gname)
 		if err != nil {
 			panic(err)
 		}
 		defer g.Close()
+
 		ba, err := ioutil.ReadAll(g)
 		if err != nil {
 			panic(err)
 		}
-		buf.Write(ba)
-	}
-	m := md5.Sum(buf.Bytes())
 
-	return m
+		if _, err := buf.Write(ba); err != nil {
+			panic(err)
+		}
+	}
+
+	return md5.Sum(buf.Bytes())
 }
 
 func TestColumnize1(t *testing.T) {
@@ -111,6 +124,7 @@ func TestColumnize1(t *testing.T) {
 	}
 	defer cf.Close()
 
+	// Read the stored checksums
 	var checksum map[string][]byte
 	b, err := ioutil.ReadAll(cf)
 	if err != nil {
@@ -126,8 +140,7 @@ func TestColumnize1(t *testing.T) {
 		for _, mode := range []string{"text", "binary"} {
 
 			m := columnizeBase(f, mode)
-			k := f + "::" + mode
-			m1 := checksum[k]
+			m1 := checksum[f+"::"+mode]
 
 			for j := range m {
 				if m[j] != m1[j] {
@@ -135,6 +148,5 @@ func TestColumnize1(t *testing.T) {
 				}
 			}
 		}
-
 	}
 }
