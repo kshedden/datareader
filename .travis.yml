@@ -5,7 +5,7 @@ go:
  - master
 
 before_install:
- - go get github.com/pkg/errors...
+ - go get github.com/pkg/errors
 
 go:
    - tip
