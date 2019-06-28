@@ -1155,7 +1155,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 				}
 				data[j].([]int8)[i] = x
 			default:
-				msg := fmt.Sprintf("Unkown variable type")
+				msg := fmt.Sprintf("Unknown variable type")
 				panic(msg)
 			}
 		}
@@ -1169,7 +1169,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 				continue
 			}
 
-			idat, err := cast_to_int(data[j])
+			idat, err := castToInt(data[j])
 			if err != nil {
 				panic(fmt.Sprintf("non-integer value label indices: %v", err))
 			}
@@ -1212,7 +1212,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 
 func (rdr *StataReader) doConvertDates(v interface{}, format string) interface{} {
 
-	vec, err := upcast_numeric(v)
+	vec, err := upcastNumeric(v)
 	if err != nil {
 		panic(fmt.Sprintf("unable to handle type %T in date vector", v))
 	}

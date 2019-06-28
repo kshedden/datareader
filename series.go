@@ -211,7 +211,7 @@ func (ser *Series) Print() {
 	ser.Write(os.Stdout)
 }
 
-// PrintRange printes a slice of the Series to the standard output.
+// PrintRange prints a slice of the Series to the standard output.
 func (ser *Series) PrintRange(first, last int) {
 	ser.WriteRange(os.Stdout, first, last)
 }
@@ -630,7 +630,7 @@ func (ser *Series) Date_from_duration(base time.Time, units string) (*Series, er
 		copy(miss, ser.missing)
 	}
 
-	td, err := upcast_numeric(ser.data)
+	td, err := upcastNumeric(ser.data)
 	if err != nil {
 		return nil, err
 	}

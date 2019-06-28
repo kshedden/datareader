@@ -20,14 +20,14 @@ import (
 	"github.com/kshedden/datareader"
 )
 
-func do_split(rdr datareader.Statfilereader, col_dir string, mode string) {
+func doSplit(rdr datareader.Statfilereader, colDir string, mode string) {
 
 	ncol := len(rdr.ColumnNames())
 	columns := make([]io.Writer, ncol)
 
-	cf, err := os.Create(filepath.Join(col_dir, "columns.txt"))
+	cf, err := os.Create(filepath.Join(colDir, "columns.txt"))
 	if err != nil {
-		os.Stderr.WriteString(fmt.Sprintf("unable to create file in %s: %v\n", col_dir, err))
+		os.Stderr.WriteString(fmt.Sprintf("unable to create file in %s: %v\n", colDir, err))
 		return
 	}
 	defer cf.Close()
@@ -39,7 +39,7 @@ func do_split(rdr datareader.Statfilereader, col_dir string, mode string) {
 	}
 
 	for j := range rdr.ColumnNames() {
-		fn := filepath.Join(col_dir, fmt.Sprintf("%d", j))
+		fn := filepath.Join(colDir, fmt.Sprintf("%d", j))
 		f, err := os.Create(fn)
 		if err != nil {
 			os.Stderr.WriteString(fmt.Sprintf("unable to create file for column %d: %v\n", j+1, err))
@@ -162,5 +162,5 @@ func main() {
 		}
 	}
 
-	do_split(rdr, *col_dir, *mode)
+	doSplit(rdr, *col_dir, *mode)
 }

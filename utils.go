@@ -13,7 +13,7 @@ type Statfilereader interface {
 	Read(int) ([]*Series, error)
 }
 
-func upcast_numeric(vec interface{}) ([]float64, error) {
+func upcastNumeric(vec interface{}) ([]float64, error) {
 
 	switch vec.(type) {
 	default:
@@ -63,7 +63,7 @@ func upcast_numeric(vec interface{}) ([]float64, error) {
 	}
 }
 
-func cast_to_int(x interface{}) ([]int64, error) {
+func castToInt(x interface{}) ([]int64, error) {
 
 	switch x.(type) {
 	default:

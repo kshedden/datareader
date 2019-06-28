@@ -15,13 +15,13 @@ import (
 )
 
 const (
-	generate_columnize = false
+	generateColumnize = false
 )
 
 // Not really a test function, used to generate md5 sums for the results.
 func TestGenerateColumnize(t *testing.T) {
 
-	if !generate_columnize {
+	if !generateColumnize {
 		return
 	}
 
@@ -61,24 +61,24 @@ func columnizeBase(fname, mode string) [16]byte {
 		panic(err)
 	}
 
-	cmd_name := filepath.Join(os.Getenv("GOBIN"), "columnize")
+	cmdName := filepath.Join(os.Getenv("GOBIN"), "columnize")
 	infile := filepath.Join("test_files", "tmp", "cols", fname)
 	args := []string{fmt.Sprintf("-in=%s", infile), fmt.Sprintf("-out=%s", outpath),
 		fmt.Sprintf("-mode=%s", mode)}
-	_, err := exec.Command(cmd_name, args...).Output()
+	_, err := exec.Command(cmdName, args...).Output()
 	if err != nil {
 		panic(err)
 	}
 
 	files, _ := ioutil.ReadDir(outpath)
-	file_names := make([]string, 0, 10)
+	fileNames := make([]string, 0, 10)
 	for _, v := range files {
-		file_names = append(file_names, v.Name())
+		fileNames = append(fileNames, v.Name())
 	}
-	sort.Strings(file_names)
+	sort.Strings(fileNames)
 
 	var buf bytes.Buffer
-	for _, f := range file_names {
+	for _, f := range fileNames {
 		if strings.HasPrefix(f, ".") {
 			continue
 		}
@@ -101,7 +101,7 @@ func columnizeBase(fname, mode string) [16]byte {
 
 func TestColumnize1(t *testing.T) {
 
-	if generate_columnize {
+	if generateColumnize {
 		return
 	}
 
@@ -120,9 +120,9 @@ func TestColumnize1(t *testing.T) {
 		panic(err)
 	}
 
-	all_test_files := getFilenames()
+	allTestFiles := getFilenames()
 
-	for _, f := range all_test_files {
+	for _, f := range allTestFiles {
 		for _, mode := range []string{"text", "binary"} {
 
 			m := columnizeBase(f, mode)
