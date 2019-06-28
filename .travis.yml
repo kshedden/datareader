@@ -1,14 +1,7 @@
 language: go
 
+before_install:
+ - go get github.com/pkg/errors...
+
 go:
-  - tip
-
-install:
-  - go get golang.org/x/text/encoding
-  - go get golang.org/x/text/encoding/charmap
-  - go install ./...
-
-env:
-  - GOBIN=${HOME}/gopath/bin
-
-script: go test ./...
+   - tip
