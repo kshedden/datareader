@@ -75,9 +75,13 @@ func (ser *Series) Write(w io.Writer) {
 // WriteRange writes the given subinterval of the Series to the given writer.
 func (ser *Series) WriteRange(w io.Writer, first, last int) {
 
-	io.WriteString(w, fmt.Sprintf("Name: %s\n", ser.Name))
+	if _, err := io.WriteString(w, fmt.Sprintf("Name: %s\n", ser.Name)); err != nil {
+		panic(err)
+	}
 	ty := fmt.Sprintf("%T", ser.data)
-	io.WriteString(w, fmt.Sprintf("Type: %s\n", ty[2:len(ty)]))
+	if _, err := io.WriteString(w, fmt.Sprintf("Type: %s\n", ty[2:])); err != nil {
+		panic(err)
+	}
 
 	switch ser.data.(type) {
 	default:
@@ -86,81 +90,117 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 		data := ser.data.([]float64)
 		for j := first; j < last; j++ {
 			if (ser.missing == nil) || !ser.missing[j] {
-				io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j]))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+					panic(err)
+				}
 			} else {
-				io.WriteString(w, fmt.Sprintf("%d:\n", j))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:\n", j)); err != nil {
+					panic(err)
+				}
 			}
 		}
 	case []float32:
 		data := ser.data.([]float32)
 		for j := first; j < last; j++ {
 			if (ser.missing == nil) || !ser.missing[j] {
-				io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j]))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+					panic(err)
+				}
 			} else {
-				io.WriteString(w, fmt.Sprintf("%d:\n", j))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:\n", j)); err != nil {
+					panic(err)
+				}
 			}
 		}
 	case []int64:
 		data := ser.data.([]int64)
 		for j := first; j < last; j++ {
 			if (ser.missing == nil) || !ser.missing[j] {
-				io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j]))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+					panic(err)
+				}
 			} else {
-				io.WriteString(w, fmt.Sprintf("%d:\n", j))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:\n", j)); err != nil {
+					panic(err)
+				}
 			}
 		}
 	case []int32:
 		data := ser.data.([]int32)
 		for j := first; j < last; j++ {
 			if (ser.missing == nil) || !ser.missing[j] {
-				io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j]))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+					panic(err)
+				}
 			} else {
-				io.WriteString(w, fmt.Sprintf("%d:\n", j))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:\n", j)); err != nil {
+					panic(err)
+				}
 			}
 		}
 	case []int16:
 		data := ser.data.([]int16)
 		for j := first; j < last; j++ {
 			if (ser.missing == nil) || !ser.missing[j] {
-				io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j]))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+					panic(err)
+				}
 			} else {
-				io.WriteString(w, fmt.Sprintf("%d:\n", j))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:\n", j)); err != nil {
+					panic(err)
+				}
 			}
 		}
 	case []int8:
 		data := ser.data.([]int8)
 		for j := first; j < last; j++ {
 			if (ser.missing == nil) || !ser.missing[j] {
-				io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j]))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+					panic(err)
+				}
 			} else {
-				io.WriteString(w, fmt.Sprintf("%d:\n", j))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:\n", j)); err != nil {
+					panic(err)
+				}
 			}
 		}
 	case []uint64:
 		data := ser.data.([]uint64)
 		for j := first; j < last; j++ {
 			if (ser.missing == nil) || !ser.missing[j] {
-				io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j]))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+					panic(err)
+				}
 			} else {
-				io.WriteString(w, fmt.Sprintf("%d:\n", j))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:\n", j)); err != nil {
+					panic(err)
+				}
 			}
 		}
 	case []string:
 		data := ser.data.([]string)
 		for j := first; j < last; j++ {
 			if (ser.missing == nil) || !ser.missing[j] {
-				io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j]))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+					panic(err)
+				}
 			} else {
-				io.WriteString(w, fmt.Sprintf("%d:\n", j))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:\n", j)); err != nil {
+					panic(err)
+				}
 			}
 		}
 	case []time.Time:
 		data := ser.data.([]time.Time)
 		for j := first; j < last; j++ {
 			if (ser.missing == nil) || !ser.missing[j] {
-				io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j]))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+					panic(err)
+				}
 			} else {
-				io.WriteString(w, fmt.Sprintf("%d:\n", j))
+				if _, err := io.WriteString(w, fmt.Sprintf("%d:\n", j)); err != nil {
+					panic(err)
+				}
 			}
 		}
 	}
@@ -213,8 +253,8 @@ func (ser *Series) AllClose(other *Series, tol float64) (bool, int) {
 
 	// Utility function for missing mask
 	cmiss := func(j int) int {
-		f1 := (ser.missing == nil) || (ser.missing[j] == false)
-		f2 := (other.missing == nil) || (other.missing[j] == false)
+		f1 := (ser.missing == nil) || !ser.missing[j]
+		f2 := (other.missing == nil) || !other.missing[j]
 		if f1 != f2 {
 			return 0 // inconsistent
 		} else if f1 {

@@ -85,11 +85,8 @@ type SAS7BDAT struct {
 	// A decoder for decoding text to unicode
 	TextDecoder *xencoding.Decoder
 
-	encoding                             string
 	column_names                         []string
-	path                                 string
 	buf                                  []byte
-	align_correction                     int
 	file                                 io.ReadSeeker
 	cached_page                          []byte
 	current_page_type                    int
@@ -122,7 +119,6 @@ type sasProperties struct {
 	mix_page_row_count       int
 	lcs                      int
 	lcp                      int
-	creator                  string
 	creator_proc             string
 	column_count             int
 }
@@ -200,7 +196,6 @@ const (
 	align_1_checker_value                     = '3'
 	align_1_offset                            = 32
 	align_1_length                            = 1
-	align_1_value                             = 4
 	u64_byte_checker_value                    = '3'
 	align_2_offset                            = 35
 	align_2_length                            = 1
@@ -248,8 +243,6 @@ const (
 	page_meta_type                            = 0
 	page_data_type                            = 256
 	page_amd_type                             = 1024
-	page_metc_type                            = 16384
-	page_comp_type                            = -28672
 	subheader_pointers_offset                 = 8
 	truncated_subheader_id                    = 1
 	compressed_subheader_id                   = 4
@@ -282,7 +275,6 @@ const (
 	column_label_text_subheader_index_length  = 2
 	column_label_offset_offset                = 30
 	column_label_offset_length                = 2
-	column_label_length_offset                = 32
 	column_label_length_length                = 2
 	rle_compression                           = "SASYZCRL"
 	rdc_compression                           = "SASYZCR2"
@@ -514,7 +506,9 @@ func (sas *SAS7BDAT) read_bytes(offset, length int) error {
 	sas.ensure_buf_size(length)
 
 	if sas.cached_page == nil {
-		sas.file.Seek(int64(offset), 0)
+		if _, err := sas.file.Seek(int64(offset), 0); err != nil {
+			panic(err)
+		}
 		n, err := sas.file.Read(sas.buf[0:length])
 		if err != nil {
 			return err
@@ -666,7 +660,9 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 		case number_column_type:
 			vec := make([]float64, n)
 			buf := bytes.NewReader(sas.bytechunk[j][0 : 8*n])
-			binary.Read(buf, sas.ByteOrder, &vec)
+			if err := binary.Read(buf, sas.ByteOrder, &vec); err != nil {
+				panic(err)
+			}
 			for i := 0; i < n; i++ {
 				if math.IsNaN(vec[i]) {
 					miss[i] = true
@@ -729,7 +725,9 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 
 	// If there is no page, go to the end of the header and read a page.
 	if sas.cached_page == nil {
-		sas.file.Seek(int64(sas.properties.header_length), 0)
+		if _, err := sas.file.Seek(int64(sas.properties.header_length), 0); err != nil {
+			return err, false
+		}
 		err, done := sas.read_next_page()
 		if err != nil {
 			return err, false
@@ -805,7 +803,6 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 			return fmt.Errorf("unknown page type: %d", sas.current_page_type), false
 		}
 	}
-	return nil, false
 }
 
 func (sas *SAS7BDAT) read_next_page() (error, bool) {
@@ -823,7 +820,9 @@ func (sas *SAS7BDAT) read_next_page() (error, bool) {
 		return fmt.Errorf("failed to read complete page from file (read %d of %d bytes)",
 			len(sas.cached_page), sas.properties.page_length), false
 	}
-	sas.read_page_header()
+	if err := sas.read_page_header(); err != nil {
+		return err, false
+	}
 	if sas.current_page_type == page_meta_type {
 		err = sas.process_page_metadata()
 		if err != nil {
@@ -847,7 +846,7 @@ func (sas *SAS7BDAT) getProperties() error {
 	}
 	sas.cached_page = make([]byte, 288)
 	copy(sas.cached_page, sas.buf[0:288])
-	if check_magic_number(sas.cached_page) == false {
+	if !check_magic_number(sas.cached_page) {
 		return fmt.Errorf("magic number mismatch (not a SAS file?)")
 	}
 
@@ -950,7 +949,9 @@ func (sas *SAS7BDAT) getProperties() error {
 
 	// Read the rest of the header into cached_page.
 	v := make([]byte, prop.header_length-288)
-	sas.file.Read(v)
+	if _, err := sas.file.Read(v); err != nil {
+		return err
+	}
 	sas.cached_page = append(sas.cached_page, v...)
 	if len(sas.cached_page) != prop.header_length {
 		return fmt.Errorf("The SAS7BDAT file appears to be truncated.")
@@ -1191,17 +1192,6 @@ func (sas *SAS7BDAT) process_byte_array_with_data(offset, length int) error {
 	sas.current_row_in_chunk_index++
 	sas.current_row_in_file_index++
 	return nil
-}
-
-func (sas *SAS7BDAT) pad_float(buf []byte) []byte {
-	w := len(buf)
-	newbuf := make([]byte, 8)
-	if sas.ByteOrder == binary.LittleEndian {
-		copy(newbuf[8-w:8], buf)
-	} else {
-		copy(newbuf[0:w], buf)
-	}
-	return newbuf
 }
 
 func check_magic_number(b []byte) bool {
@@ -1495,10 +1485,11 @@ func (sas *SAS7BDAT) parseMetadata() error {
 }
 
 func (sas *SAS7BDAT) process_page_meta() (bool, error) {
-	sas.read_page_header()
+	if err := sas.read_page_header(); err != nil {
+		return false, err
+	}
 	if is_page_meta_mix_amd(sas.current_page_type) {
-		err := sas.process_page_metadata()
-		if err != nil {
+		if err := sas.process_page_metadata(); err != nil {
 			return false, err
 		}
 	}
@@ -1530,34 +1521,10 @@ func (sas *SAS7BDAT) is_page_mix_data_type(val int) bool {
 	return false
 }
 
-func (sas *SAS7BDAT) is_page_mix_amd(val int) bool {
-	switch val {
-	case 0, 512, 640, 1024:
-		return true
-	}
-	return false
-}
-
-func is_page_any(val int) bool {
-	switch val {
-	case 0, 512, 640, 1024, 256, 16384, -28672:
-		return true
-	}
-	return false
-}
-
 func check_page_type(current_page int) bool {
 	switch current_page {
 	case page_meta_type, page_data_type, 512, 640:
 		return false
 	}
 	return true
-}
-
-func tmp_sum(vec []byte) int {
-	x := 0
-	for _, v := range vec {
-		x += int(v)
-	}
-	return x
 }

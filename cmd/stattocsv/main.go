@@ -21,7 +21,9 @@ func doConversion(rdr datareader.Statfilereader) {
 	w := csv.NewWriter(os.Stdout)
 
 	ncol := len(rdr.ColumnNames())
-	w.Write(rdr.ColumnNames())
+	if err := w.Write(rdr.ColumnNames()); err != nil {
+		panic(err)
+	}
 
 	row := make([]string, ncol)
 
@@ -63,26 +65,28 @@ func doConversion(rdr datareader.Statfilereader) {
 		for i := 0; i < nrow; i++ {
 			for j := 0; j < ncol; j++ {
 				if numbercols[j] != nil {
-					if missing[j] == nil || missing[j][i] == false {
+					if missing[j] == nil || !missing[j][i] {
 						row[j] = fmt.Sprintf("%f", numbercols[j][i])
 					} else {
 						row[j] = ""
 					}
 				} else if stringcols[j] != nil {
-					if missing[j] == nil || missing[j][i] == false {
-						row[j] = fmt.Sprintf("%s", stringcols[j][i])
+					if missing[j] == nil || !missing[j][i] {
+						row[j] = stringcols[j][i]
 					} else {
 						row[j] = ""
 					}
 				} else if timecols[j] != nil {
-					if missing[j] == nil || missing[j][i] == false {
+					if missing[j] == nil || !missing[j][i] {
 						row[j] = fmt.Sprintf("%v", timecols[j][i])
 					} else {
 						row[j] = ""
 					}
 				}
 			}
-			w.Write(row)
+			if err := w.Write(row); err != nil {
+				panic(err)
+			}
 		}
 	}
 

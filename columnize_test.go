@@ -47,7 +47,9 @@ func TestGenerateColumnize(t *testing.T) {
 		panic(err)
 	}
 
-	cf.Write(b)
+	if _, err := cf.Write(b); err != nil {
+		panic(err)
+	}
 	cf.Close()
 }
 
@@ -55,7 +57,9 @@ func columnizeBase(fname, mode string) [16]byte {
 
 	outpath := filepath.Join("test_files", "tmp", "cols")
 	os.RemoveAll(outpath)
-	os.Mkdir(outpath, os.ModeDir)
+	if err := os.Mkdir(outpath, os.ModeDir); err != nil {
+		panic(err)
+	}
 
 	cmd_name := filepath.Join(os.Getenv("GOBIN"), "columnize")
 	infile := filepath.Join("test_files", "tmp", "cols", fname)
@@ -112,7 +116,9 @@ func TestColumnize1(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	json.Unmarshal(b, &checksum)
+	if err := json.Unmarshal(b, &checksum); err != nil {
+		panic(err)
+	}
 
 	all_test_files := getFilenames()
 
@@ -123,7 +129,7 @@ func TestColumnize1(t *testing.T) {
 			k := f + "::" + mode
 			m1 := checksum[k]
 
-			for j, _ := range m {
+			for j := range m {
 				if m[j] != m1[j] {
 					t.Fail()
 				}

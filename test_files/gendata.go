@@ -29,7 +29,9 @@ func gen1(words []string, fname string) {
 	for k := 0; k < ncol; k++ {
 		rowdata[k] = fmt.Sprintf("Column%d", k+1)
 	}
-	w.Write(rowdata)
+	if err := w.Write(rowdata); err != nil {
+		panic(err)
+	}
 
 	for i := 0; i < nrow; i++ {
 
@@ -63,7 +65,9 @@ func gen1(words []string, fname string) {
 			}
 		}
 
-		w.Write(rowdata)
+		if err := w.Write(rowdata); err != nil {
+			panic(err)
+		}
 	}
 
 	w.Flush()

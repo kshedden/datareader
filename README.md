@@ -1,3 +1,8 @@
+[![Build Status](https://travis-ci.com/kshedden/datareader.svg?branch=master)](https://travis-ci.com/kshedden/datareader)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kshedden/datareader)](https://goreportcard.com/report/github.com/kshedden/datareader)
+[![codecov](https://codecov.io/gh/kshedden/datareader/branch/master/graph/badge.svg)](https://codecov.io/gh/kshedden/datareader)
+[![GoDoc](https://godoc.org/github.com/kshedden/datareader?status.png)](https://godoc.org/github.com/kshedden/datareader)
+
 datareader : read SAS and Stata files in Go
 =========================
 

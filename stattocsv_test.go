@@ -90,7 +90,7 @@ func TestStattocsv1(t *testing.T) {
 	new_checksums := runStattocsv(test_files)
 	old_checksums := refChecksums(test_files)
 
-	for ky, _ := range old_checksums {
+	for ky := range old_checksums {
 
 		for j := 0; j < 16; j++ {
 			if new_checksums[ky][j] != old_checksums[ky][j] {

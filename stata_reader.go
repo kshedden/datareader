@@ -1,3 +1,5 @@
+// https://www.loc.gov/preservation/digital/formats/fdd/fdd000471.shtml
+
 package datareader
 
 import (
@@ -5,9 +7,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -27,6 +32,12 @@ var (
 	value_label_length     = map[int]int{117: 33, 118: 129}
 	vo_length              = map[int]int{117: 8, 118: 12}
 )
+
+func logerr(err error) {
+	if err != nil {
+		log.Printf("%+v", errors.Wrap(err, ""))
+	}
+}
 
 // StataReader reads Stata dta data files.  Currently dta format
 // versions 114, 115, 117, and 118 can be read.
@@ -151,78 +162,110 @@ func (rdr *StataReader) init() error {
 	c := make([]byte, 1)
 	_, err = rdr.reader.Read(c)
 	if err != nil {
+		logerr(err)
 		return err
 	}
-	rdr.reader.Seek(0, 0)
+	if _, err := rdr.reader.Seek(0, 0); err != nil {
+		panic(err)
+	}
 
 	if string(c) == "<" {
-		err = rdr.read_new_header()
+		err = rdr.readNewHeader()
 	} else {
-		err = rdr.read_old_header()
+		err = rdr.readOldHeader()
 	}
 	if err != nil {
+		logerr(err)
 		return err
 	}
 
-	err = rdr.read_vartypes()
-	if err != nil {
+	if err := rdr.readVartypes(); err != nil {
+		logerr(err)
 		return err
 	}
 
 	if rdr.FormatVersion < 117 {
-		rdr.translate_vartypes()
+		if err := rdr.translateVartypes(); err != nil {
+			logerr(err)
+			return err
+		}
 	}
 
-	err = rdr.read_varnames()
-	if err != nil {
+	if err := rdr.readVarnames(); err != nil {
+		logerr(err)
 		return err
 	}
 
 	// Skip over srtlist
 	if rdr.FormatVersion < 117 {
 		m := int64(2 * (rdr.Nvar + 1))
-		rdr.reader.Seek(m, 1)
+		if _, err := rdr.reader.Seek(m, 1); err != nil {
+			logerr(err)
+			return err
+		}
 	}
 
-	rdr.read_formats()
-	rdr.read_value_label_names()
-	rdr.readVariableLabels()
+	if err := rdr.readFormats(); err != nil {
+		logerr(err)
+		return err
+	}
+
+	if err := rdr.readValueLabelNames(); err != nil {
+		logerr(err)
+		return err
+	}
+
+	if err := rdr.readVariableLabels(); err != nil {
+		logerr(err)
+		return err
+	}
 
 	if rdr.FormatVersion < 117 {
-		err = rdr.read_expansion_fields()
-		if err != nil {
+		if err := rdr.readExpansionFields(); err != nil {
+			logerr(err)
 			return err
 		}
 	}
 
 	if rdr.FormatVersion >= 117 {
-		rdr.read_strls()
+		if err := rdr.read_strls(); err != nil {
+			logerr(err)
+			return err
+		}
 
 		// Must be called manually for older format < 117.
-		rdr.readValueLabels()
+		if err := rdr.readValueLabels(); err != nil {
+			logerr(err)
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (rdr *StataReader) read_expansion_fields() error {
+func (rdr *StataReader) readExpansionFields() error {
 	var b byte
 	var i int32
 
 	for {
 		err := binary.Read(rdr.reader, rdr.ByteOrder, &b)
 		if err != nil {
+			logerr(err)
 			return err
 		}
 		err = binary.Read(rdr.reader, rdr.ByteOrder, &i)
 		if err != nil {
+			logerr(err)
 			return err
 		}
 
 		if (b == 0) && (i == 0) {
 			break
 		}
-		rdr.reader.Seek(int64(i), 1)
+		if _, err := rdr.reader.Seek(int64(i), 1); err != nil {
+			logerr(err)
+			return err
+		}
 	}
 
 	return nil
@@ -300,16 +343,20 @@ func (rdr *StataReader) read_uint(width int) (int, error) {
 	}
 }
 
-// read_old_header reads the pre version 117 header
-func (rdr *StataReader) read_old_header() error {
+// readOldHeader reads the pre version 117 header
+func (rdr *StataReader) readOldHeader() error {
 
-	rdr.reader.Seek(0, 0)
+	if _, err := rdr.reader.Seek(0, 0); err != nil {
+		logerr(err)
+		return err
+	}
 	buf := make([]byte, 81)
 
 	// Get the format
 	var format uint8
 	err := binary.Read(rdr.reader, binary.LittleEndian, &format)
 	if err != nil {
+		logerr(err)
 		return err
 	}
 	rdr.FormatVersion = int(format)
@@ -321,6 +368,7 @@ func (rdr *StataReader) read_old_header() error {
 	var bo uint8
 	err = binary.Read(rdr.reader, binary.LittleEndian, &bo)
 	if err != nil {
+		logerr(err)
 		return err
 	}
 	if bo == 1 {
@@ -330,23 +378,29 @@ func (rdr *StataReader) read_old_header() error {
 	}
 
 	// Skip two bytes
-	rdr.reader.Seek(2, 1)
+	if _, err := rdr.reader.Seek(2, 1); err != nil {
+		logerr(err)
+		return err
+	}
 
 	// Number of variables
 	rdr.Nvar, err = rdr.read_int(nvar_length[rdr.FormatVersion])
 	if err != nil {
+		logerr(err)
 		return err
 	}
 
 	// Number of observations
 	rdr.row_count, err = rdr.read_int(row_count_length[rdr.FormatVersion])
 	if err != nil {
+		logerr(err)
 		return err
 	}
 
 	// Data label
 	n, err := rdr.reader.Read(buf[0:81])
 	if err != nil {
+		logerr(err)
 		return err
 	}
 	if n != 81 {
@@ -357,6 +411,7 @@ func (rdr *StataReader) read_old_header() error {
 	// Time stamp
 	n, err = rdr.reader.Read(buf[0:18])
 	if err != nil {
+		logerr(err)
 		return err
 	}
 	if n != 18 {
@@ -378,8 +433,8 @@ func (rdr *StataReader) supported_version() bool {
 	return supported
 }
 
-// read_new_header reads a new-style xml header (versions 117+).
-func (rdr *StataReader) read_new_header() error {
+// readNewHeader reads a new-style xml header (versions 117+).
+func (rdr *StataReader) readNewHeader() error {
 
 	buf := make([]byte, 500)
 	var n8 uint8
@@ -387,6 +442,7 @@ func (rdr *StataReader) read_new_header() error {
 	// <stata_dta><header><release>
 	n, err := rdr.reader.Read(buf[0:28])
 	if err != nil {
+		logerr(err)
 		return err
 	}
 	if n != 28 {
@@ -397,9 +453,13 @@ func (rdr *StataReader) read_new_header() error {
 	}
 
 	// Stata file version
-	rdr.reader.Read(buf[0:3])
+	if _, err := rdr.reader.Read(buf[0:3]); err != nil {
+		logerr(err)
+		return err
+	}
 	x, err := strconv.ParseUint(string(buf[0:3]), 0, 64)
 	if err != nil {
+		logerr(err)
 		return err
 	}
 	rdr.FormatVersion = int(x)
@@ -408,10 +468,16 @@ func (rdr *StataReader) read_new_header() error {
 	}
 
 	// </release><byteorder>
-	rdr.reader.Seek(21, 1)
+	if _, err := rdr.reader.Seek(21, 1); err != nil {
+		logerr(err)
+		return err
+	}
 
 	// Byte order
-	rdr.reader.Read(buf[0:3])
+	if _, err := rdr.reader.Read(buf[0:3]); err != nil {
+		logerr(err)
+		return err
+	}
 	if string(buf[0:3]) == "MSF" {
 		rdr.ByteOrder = binary.BigEndian
 	} else {
@@ -419,33 +485,46 @@ func (rdr *StataReader) read_new_header() error {
 	}
 
 	// </byteorder><K>
-	rdr.reader.Seek(15, 1)
+	if _, err := rdr.reader.Seek(15, 1); err != nil {
+		logerr(err)
+		return err
+	}
 
 	// Number of variables
 	rdr.Nvar, err = rdr.read_int(nvar_length[rdr.FormatVersion])
 	if err != nil {
+		logerr(err)
 		return err
 	}
 
 	// </K><N>
-	rdr.reader.Seek(7, 1)
+	if _, err := rdr.reader.Seek(7, 1); err != nil {
+		logerr(err)
+		return err
+	}
 
 	// Number of observations
 	rdr.row_count, err = rdr.read_int(row_count_length[rdr.FormatVersion])
 	if err != nil {
+		logerr(err)
 		return err
 	}
 
 	// </N><label>
-	rdr.reader.Seek(11, 1)
+	if _, err := rdr.reader.Seek(11, 1); err != nil {
+		logerr(err)
+		return err
+	}
 
 	// Data set label
 	w, err := rdr.read_uint(dataset_label_length[rdr.FormatVersion])
 	if err != nil {
+		logerr(err)
 		return err
 	}
 	n, err = rdr.reader.Read(buf[0:w])
 	if err != nil {
+		logerr(err)
 		return err
 	}
 	if n != w {
@@ -454,41 +533,71 @@ func (rdr *StataReader) read_new_header() error {
 	rdr.DatasetLabel = string(buf[0:w])
 
 	// </label><timestamp>
-	rdr.reader.Seek(19, 1)
+	if _, err := rdr.reader.Seek(19, 1); err != nil {
+		logerr(err)
+		return err
+	}
 
 	// Time stamp
 	err = binary.Read(rdr.reader, rdr.ByteOrder, &n8)
 	if err != nil {
+		logerr(err)
 		return err
 	}
 	n, err = rdr.reader.Read(buf[0:n8])
 	if err != nil {
+		logerr(err)
 		return err
 	}
 	if n != int(n8) {
-		return fmt.Errorf("stata file appears to be truncated")
+		err := fmt.Errorf("stata file appears to be truncated")
+		logerr(err)
+		return err
 	}
 	rdr.TimeStamp = string(buf[0:n8])
 
 	// </timestamp></header><map> + 16 bytes
-	rdr.reader.Seek(42, 1)
+	if _, err := rdr.reader.Seek(42, 1); err != nil {
+		logerr(err)
+		return err
+	}
 
 	// Map
-	binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_vartypes)
-	binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_varnames)
-	binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_sortlist)
-	binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_formats)
-	binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_value_label_names)
-	binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_variable_labels)
-	binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_characteristics)
-	binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_data)
-	binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_strls)
-	binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_value_labels)
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_vartypes); err != nil {
+		return err
+	}
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_varnames); err != nil {
+		return err
+	}
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_sortlist); err != nil {
+		return err
+	}
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_formats); err != nil {
+		return err
+	}
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_value_label_names); err != nil {
+		return err
+	}
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_variable_labels); err != nil {
+		return err
+	}
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_characteristics); err != nil {
+		return err
+	}
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_data); err != nil {
+		return err
+	}
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_strls); err != nil {
+		return err
+	}
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_value_labels); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (rdr *StataReader) read_vartypes() error {
+func (rdr *StataReader) readVartypes() error {
 
 	var err error
 
@@ -517,6 +626,7 @@ func (rdr *StataReader) read_vartypes_16() error {
 		var err error
 		rdr.var_types[k], err = rdr.read_uint(2)
 		if err != nil {
+			logerr(err)
 			return err
 		}
 	}
@@ -529,17 +639,19 @@ func (rdr *StataReader) read_vartypes_8() error {
 	for k := 0; k < int(rdr.Nvar); k++ {
 		rdr.var_types[k], err = rdr.read_uint(1)
 		if err != nil {
+			logerr(err)
 			return err
 		}
 	}
 	return nil
 }
 
-func (rdr *StataReader) translate_vartypes() {
+func (rdr *StataReader) translateVartypes() error {
+
 	for k := 0; k < int(rdr.Nvar); k++ {
 		switch {
-		// strf
 		case rdr.var_types[k] <= 244:
+			// strf
 			continue
 		case rdr.var_types[k] == 251:
 			rdr.var_types[k] = int8Type
@@ -552,38 +664,51 @@ func (rdr *StataReader) translate_vartypes() {
 		case rdr.var_types[k] == 255:
 			rdr.var_types[k] = float64Type
 		default:
-			panic("unknown variable type %v in translate_vartypes")
+			return fmt.Errorf("unknown variable type")
 		}
 	}
+
+	return nil
 }
 
-func (rdr *StataReader) read_formats() {
+func (rdr *StataReader) readFormats() error {
+
+	var err error
+
 	switch {
 	case rdr.FormatVersion == 118:
-		rdr.do_read_formats(57, true)
+		err = rdr.doReadFormats(57, true)
 	case rdr.FormatVersion == 117:
-		rdr.do_read_formats(49, true)
+		err = rdr.doReadFormats(49, true)
 	case rdr.FormatVersion == 115:
-		rdr.do_read_formats(49, false)
+		err = rdr.doReadFormats(49, false)
 	case rdr.FormatVersion == 114:
-		rdr.do_read_formats(49, false)
+		err = rdr.doReadFormats(49, false)
 	default:
-		panic(fmt.Sprintf("unknown format version %v in read_varnames", rdr.FormatVersion))
+		err = fmt.Errorf("unknown format version %v", rdr.FormatVersion)
 	}
+
+	if err != nil {
+		logerr(err)
+	}
+
+	return err
 }
 
-func (rdr *StataReader) do_read_formats(bufsize int, seek bool) {
+func (rdr *StataReader) doReadFormats(bufsize int, seek bool) error {
 
 	buf := make([]byte, bufsize)
 	if seek {
 		if _, err := rdr.reader.Seek(rdr.seek_formats+9, 0); err != nil {
-			panic(err)
+			logerr(err)
+			return err
 		}
 	}
 	rdr.Formats = make([]string, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
 		if _, err := rdr.reader.Read(buf); err != nil {
-			panic(err)
+			logerr(err)
+			return err
 		}
 		rdr.Formats[k] = string(partition(buf))
 	}
@@ -596,6 +721,8 @@ func (rdr *StataReader) do_read_formats(bufsize int, seek bool) {
 			rdr.is_date[k] = true
 		}
 	}
+
+	return nil
 }
 
 // Returns everything before the first null byte.
@@ -608,26 +735,31 @@ func partition(b []byte) []byte {
 	return b
 }
 
-// read_varnames dispatches to the correct function for reading
+// readVarnames dispatches to the correct function for reading
 // variable names for the dta file format.
-func (rdr *StataReader) read_varnames() error {
+func (rdr *StataReader) readVarnames() error {
+
 	var err error
 	switch rdr.FormatVersion {
 	case 118:
-		err = rdr.do_read_varnames(129, true)
+		err = rdr.doReadVarnames(129, true)
 	case 117:
-		err = rdr.do_read_varnames(33, true)
+		err = rdr.doReadVarnames(33, true)
 	case 115:
-		err = rdr.do_read_varnames(33, false)
+		err = rdr.doReadVarnames(33, false)
 	case 114:
-		err = rdr.do_read_varnames(33, false)
+		err = rdr.doReadVarnames(33, false)
 	default:
-		return fmt.Errorf("unknown format version %v in read_varnames", rdr.FormatVersion)
+		err = fmt.Errorf("unknown format version %d", rdr.FormatVersion)
+	}
+
+	if err != nil {
+		logerr(err)
 	}
 	return err
 }
 
-func (rdr *StataReader) do_read_varnames(bufsize int, seek bool) error {
+func (rdr *StataReader) doReadVarnames(bufsize int, seek bool) error {
 
 	buf := make([]byte, bufsize)
 	if seek {
@@ -641,6 +773,7 @@ func (rdr *StataReader) do_read_varnames(bufsize int, seek bool) error {
 	for k := 0; k < int(rdr.Nvar); k++ {
 		n, err := rdr.reader.Read(buf)
 		if err != nil {
+			logerr(err)
 			return err
 		}
 		if n != bufsize {
@@ -652,77 +785,100 @@ func (rdr *StataReader) do_read_varnames(bufsize int, seek bool) error {
 	return nil
 }
 
-func (rdr *StataReader) read_value_label_names() {
+func (rdr *StataReader) readValueLabelNames() error {
 
+	var err error
 	switch rdr.FormatVersion {
 	case 118:
-		rdr.doReadValueLabelNames(129, true)
+		err = rdr.doReadValueLabelNames(129, true)
 	case 117:
-		rdr.doReadValueLabelNames(33, true)
+		err = rdr.doReadValueLabelNames(33, true)
 	case 116:
-		rdr.doReadValueLabelNames(33, false)
+		err = rdr.doReadValueLabelNames(33, false)
 	case 115:
-		rdr.doReadValueLabelNames(33, false)
+		err = rdr.doReadValueLabelNames(33, false)
 	default:
-		panic(fmt.Sprintf("unknown format version %v in read_value_label_names", rdr.FormatVersion))
+		return fmt.Errorf("unknown format version %v", rdr.FormatVersion)
 	}
+
+	if err != nil {
+		logerr(err)
+	}
+	return err
 }
 
-func (rdr *StataReader) doReadValueLabelNames(bufsize int, seek bool) {
+func (rdr *StataReader) doReadValueLabelNames(bufsize int, seek bool) error {
 
 	buf := make([]byte, bufsize)
 	if seek {
-		rdr.reader.Seek(rdr.seek_value_label_names+19, 0)
+		if _, err := rdr.reader.Seek(rdr.seek_value_label_names+19, 0); err != nil {
+			logerr(err)
+			return err
+		}
 	}
 
 	rdr.ValueLabelNames = make([]string, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
-		rdr.reader.Read(buf)
+		if _, err := rdr.reader.Read(buf); err != nil {
+			return err
+		}
 		rdr.ValueLabelNames[k] = string(partition(buf))
 	}
+
+	return nil
 }
 
-func (rdr *StataReader) readVariableLabels() {
+func (rdr *StataReader) readVariableLabels() error {
 
+	var err error
 	switch rdr.FormatVersion {
 	case 118:
-		rdr.doReadVariableLabels(321, true)
+		err = rdr.doReadVariableLabels(321, true)
 	case 117:
-		rdr.doReadVariableLabels(321, true)
+		err = rdr.doReadVariableLabels(81, true)
 	case 115:
-		rdr.doReadVariableLabels(81, false)
+		err = rdr.doReadVariableLabels(81, false)
 	case 114:
-		rdr.doReadVariableLabels(81, false)
+		err = rdr.doReadVariableLabels(81, false)
 	default:
-		msg := fmt.Sprintf("Unknown format version %d in readVariableLabels", rdr.FormatVersion)
-		panic(msg)
+		err = fmt.Errorf("Unknown format version %d", rdr.FormatVersion)
 	}
+
+	if err != nil {
+		logerr(err)
+	}
+	return err
 }
 
-func (rdr *StataReader) doReadVariableLabels(bufsize int, seek bool) {
+func (rdr *StataReader) doReadVariableLabels(bufsize int, seek bool) error {
 
 	buf := make([]byte, bufsize)
 	if seek {
-		_, err := rdr.reader.Seek(rdr.seek_variable_labels+17, 0)
-		if err != nil {
-			panic(err)
+		if _, err := rdr.reader.Seek(rdr.seek_variable_labels+17, 0); err != nil {
+			logerr(err)
+			return err
 		}
 	}
 
 	rdr.ColumnNamesLong = make([]string, rdr.Nvar)
 	for k := 0; k < int(rdr.Nvar); k++ {
-		rdr.reader.Read(buf)
+		if _, err := rdr.reader.Read(buf); err != nil {
+			logerr(err)
+			return err
+		}
 		rdr.ColumnNamesLong[k] = string(partition(buf))
 	}
+
+	return nil
 }
 
-func (rdr *StataReader) readValueLabels() {
+func (rdr *StataReader) readValueLabels() error {
 
 	vl := make(map[string]map[int32]string)
 	buf := make([]byte, 321)
 
 	if _, err := rdr.reader.Seek(rdr.seek_value_labels+14, 0); err != nil {
-		panic(err)
+		return err
 	}
 
 	var n int32
@@ -730,36 +886,52 @@ func (rdr *StataReader) readValueLabels() {
 	vlw := value_label_length[rdr.FormatVersion]
 
 	for {
-		rdr.reader.Read(buf[0:5])
+		if _, err := rdr.reader.Read(buf[0:5]); err != nil {
+			return err
+		}
 		if string(buf[0:5]) != "<lbl>" {
 			break
 		}
 
 		if _, err := rdr.reader.Seek(4, 1); err != nil {
-			panic(err)
+			return err
 		}
-		rdr.reader.Read(buf[0:vlw])
+		if _, err := rdr.reader.Read(buf[0:vlw]); err != nil {
+			return err
+		}
 		labname := string(partition(buf[0:vlw]))
-		rdr.reader.Seek(3, 1)
+		if _, err := rdr.reader.Seek(3, 1); err != nil {
+			return err
+		}
 
-		binary.Read(rdr.reader, rdr.ByteOrder, &n)
-		binary.Read(rdr.reader, rdr.ByteOrder, &textlen)
+		if err := binary.Read(rdr.reader, rdr.ByteOrder, &n); err != nil {
+			return err
+		}
+		if err := binary.Read(rdr.reader, rdr.ByteOrder, &textlen); err != nil {
+			return err
+		}
 
 		off := make([]int32, n)
 		val := make([]int32, n)
 
 		for j := int32(0); j < n; j++ {
-			binary.Read(rdr.reader, rdr.ByteOrder, &off[j])
+			if err := binary.Read(rdr.reader, rdr.ByteOrder, &off[j]); err != nil {
+				return err
+			}
 		}
 
 		for j := int32(0); j < n; j++ {
-			binary.Read(rdr.reader, rdr.ByteOrder, &val[j])
+			if err := binary.Read(rdr.reader, rdr.ByteOrder, &val[j]); err != nil {
+				return err
+			}
 		}
 
 		if cap(buf) < int(textlen) {
 			buf = make([]byte, 2*textlen)
 		}
-		rdr.reader.Read(buf[0:textlen])
+		if _, err := rdr.reader.Read(buf[0:textlen]); err != nil {
+			return err
+		}
 
 		vk := make(map[int32]string)
 
@@ -769,15 +941,19 @@ func (rdr *StataReader) readValueLabels() {
 		vl[labname] = vk
 
 		// </lbl>
-		rdr.reader.Seek(6, 1)
+		if _, err := rdr.reader.Seek(6, 1); err != nil {
+			return err
+		}
 	}
 	rdr.ValueLabels = vl
+
+	return nil
 }
 
 func (rdr *StataReader) read_strls() error {
 
 	if _, err := rdr.reader.Seek(rdr.seek_strls+7, 0); err != nil {
-		panic(err)
+		return err
 	}
 
 	vo := make([]byte, vo_length[rdr.FormatVersion])
@@ -804,9 +980,15 @@ func (rdr *StataReader) read_strls() error {
 			break
 		}
 
-		binary.Read(rdr.reader, rdr.ByteOrder, vo)
-		binary.Read(rdr.reader, rdr.ByteOrder, &t)
-		binary.Read(rdr.reader, rdr.ByteOrder, &length)
+		if err := binary.Read(rdr.reader, rdr.ByteOrder, vo); err != nil {
+			return err
+		}
+		if err := binary.Read(rdr.reader, rdr.ByteOrder, &t); err != nil {
+			return err
+		}
+		if err := binary.Read(rdr.reader, rdr.ByteOrder, &length); err != nil {
+			return err
+		}
 
 		if vo_length[rdr.FormatVersion] == 12 {
 			copy(vo8[0:2], vo[0:2])
@@ -816,12 +998,16 @@ func (rdr *StataReader) read_strls() error {
 		}
 
 		var ptr uint64
-		binary.Read(bytes.NewReader(vo8), rdr.ByteOrder, &ptr)
+		if err := binary.Read(bytes.NewReader(vo8), rdr.ByteOrder, &ptr); err != nil {
+			return err
+		}
 
 		if len(buf) < int(length) {
 			buf = make([]byte, 2*length)
 		}
-		rdr.reader.Read(buf[0:length])
+		if _, err := rdr.reader.Read(buf[0:length]); err != nil {
+			return err
+		}
 
 		if t == 130 {
 			buf = partition(buf[0:length])
@@ -882,7 +1068,9 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 	}
 
 	if rdr.FormatVersion >= 117 && rdr.rows_read == 0 {
-		rdr.reader.Seek(rdr.seek_data+6, 0)
+		if _, err := rdr.reader.Seek(rdr.seek_data+6, 0); err != nil {
+			return nil, err
+		}
 	}
 
 	buf := make([]byte, 2045)
@@ -1002,7 +1190,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 	}
 
 	if rdr.ConvertDates {
-		for j, _ := range data {
+		for j := range data {
 			if rdr.is_date[j] {
 				data[j] = rdr.doConvertDates(data[j], rdr.Formats[j])
 			}

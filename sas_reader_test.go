@@ -2,42 +2,13 @@ package datareader
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
 
-func to_date_yyyymmdd(vec []float64) []time.Time {
-
-	n := len(vec)
-	rslt := make([]time.Time, n)
-
-	for i, x := range vec {
-		if math.IsNaN(x) {
-			continue
-		}
-		y := int(x)
-		day := y % 100
-		y = (y - day) / 100
-		month := y % 100
-		y = (y - month) / 100
-		year := y
-		rslt[i] = time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
-	}
-
-	return rslt
-}
-
-func max(x, y int) int {
-	if x >= y {
-		return x
-	}
-	return y
-}
-
-func sas_base_test(fname_csv, fname_sas string) bool {
+func sasBaseTest(fname_csv, fname_sas string) bool {
 
 	f, err := os.Open(filepath.Join("test_files", "data", fname_csv))
 	if err != nil {
@@ -112,11 +83,11 @@ func sas_base_test(fname_csv, fname_sas string) bool {
 	return true
 }
 
-func TestSAS_generated(t *testing.T) {
+func TestSASGenerated(t *testing.T) {
 
 	for k := 1; k < 16; k++ {
 		fname := fmt.Sprintf("test%d.sas7bdat", k)
-		r := sas_base_test("test1.csv", fname)
+		r := sasBaseTest("test1.csv", fname)
 		if !r {
 			fmt.Printf("Failing %s\n", fname)
 			t.Fail()

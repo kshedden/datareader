@@ -26,22 +26,26 @@ func do_split(rdr datareader.Statfilereader, col_dir string, mode string) {
 	columns := make([]io.Writer, ncol)
 
 	cf, err := os.Create(filepath.Join(col_dir, "columns.txt"))
-	defer cf.Close()
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("unable to create file in %s: %v\n", col_dir, err))
 		return
 	}
+	defer cf.Close()
+
 	for i, c := range rdr.ColumnNames() {
-		cf.WriteString(fmt.Sprintf("%d,%s\n", i+1, c))
+		if _, err := cf.WriteString(fmt.Sprintf("%d,%s\n", i+1, c)); err != nil {
+			panic(err)
+		}
 	}
 
-	for j, _ := range rdr.ColumnNames() {
+	for j := range rdr.ColumnNames() {
 		fn := filepath.Join(col_dir, fmt.Sprintf("%d", j))
 		f, err := os.Create(fn)
-		defer f.Close()
 		if err != nil {
 			os.Stderr.WriteString(fmt.Sprintf("unable to create file for column %d: %v\n", j+1, err))
 		}
+		defer f.Close()
+
 		columns[j] = f
 	}
 
@@ -67,27 +71,41 @@ func do_split(rdr datareader.Statfilereader, col_dir string, mode string) {
 				if mode == "binary" {
 					buf := new(bytes.Buffer)
 					for i, x := range ds.([]float64) {
-						if (missing[j] == nil) || (missing[j][i] == false) {
-							binary.Write(buf, binary.LittleEndian, x)
+						if (missing[j] == nil) || !missing[j][i] {
+							if err := binary.Write(buf, binary.LittleEndian, x); err != nil {
+								panic(err)
+							}
 						} else {
-							binary.Write(buf, binary.LittleEndian, math.NaN())
+							if err := binary.Write(buf, binary.LittleEndian, math.NaN()); err != nil {
+								panic(err)
+							}
 						}
 					}
-					columns[j].Write(buf.Bytes())
+					if _, err := columns[j].Write(buf.Bytes()); err != nil {
+						panic(err)
+					}
 				} else {
 					vec := ds.([]float64)
 					for i, x := range vec {
-						if (missing[j] == nil) || (missing[j][i] == false) {
-							columns[j].Write([]byte(fmt.Sprintf("%v\n", x)))
+						if (missing[j] == nil) || !missing[j][i] {
+							if _, err := columns[j].Write([]byte(fmt.Sprintf("%v\n", x))); err != nil {
+								panic(err)
+							}
 						} else {
-							columns[j].Write([]byte("\n"))
+							if _, err := columns[j].Write([]byte("\n")); err != nil {
+								panic(err)
+							}
 						}
 					}
 				}
 			case []string:
 				for _, x := range ds.([]string) {
-					columns[j].Write([]byte(x))
-					columns[j].Write([]byte("\n"))
+					if _, err := columns[j].Write([]byte(x)); err != nil {
+						panic(err)
+					}
+					if _, err := columns[j].Write([]byte("\n")); err != nil {
+						panic(err)
+					}
 				}
 			}
 		}
