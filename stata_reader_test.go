@@ -54,7 +54,7 @@ func stataBaseTest(fnameCsv, fnameStata string) bool {
 		ds[j] = ds[j].UpcastNumeric()
 		if strings.Contains(formats[j], "%td") {
 			dt[j] = dt[j].ForceNumeric()
-			dt[j], err = dt[j].Date_from_duration(base, "days")
+			dt[j], err = dt[j].DateFromDuration(base, "days")
 			if err != nil {
 				logerr(err)
 				return false

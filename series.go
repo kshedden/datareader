@@ -490,6 +490,7 @@ func (ser *Series) ForceNumeric() *Series {
 	}
 }
 
+// CountMissing returns the number of missing values in the Series.
 func (ser *Series) CountMissing() int {
 
 	m := 0
@@ -502,6 +503,9 @@ func (ser *Series) CountMissing() int {
 	return m
 }
 
+// StringFunc applies the given function to all values in the series,
+// if the series holds string values.  Otherwise calling this method has
+// no effect.
 func (ser *Series) StringFunc(f func(string) string) *Series {
 
 	n := ser.length
@@ -524,6 +528,8 @@ func (ser *Series) StringFunc(f func(string) string) *Series {
 	}
 }
 
+// ToString returns a Series with string values, derived
+// from the given series.
 func (ser *Series) ToString() *Series {
 
 	n := ser.length
@@ -620,7 +626,9 @@ func (ser SeriesArray) AllEqual(other []*Series) (bool, int, int) {
 	return ser.AllClose(other, 0.0)
 }
 
-func (ser *Series) Date_from_duration(base time.Time, units string) (*Series, error) {
+// DateFromDuration returns a new Series in which the data are dates, derived
+// from a given duration value.  Currently, units must be "days".
+func (ser *Series) DateFromDuration(base time.Time, units string) (*Series, error) {
 
 	n := ser.Length()
 
@@ -641,7 +649,7 @@ func (ser *Series) Date_from_duration(base time.Time, units string) (*Series, er
 		default:
 			return nil, fmt.Errorf("unknown time unit duration")
 		case "days":
-			if (miss == nil) || !miss[i] {
+			if miss == nil || !miss[i] {
 				newdate[i] = base.Add(time.Hour * time.Duration(24*td[i]))
 			}
 		}
@@ -651,9 +659,12 @@ func (ser *Series) Date_from_duration(base time.Time, units string) (*Series, er
 	if err != nil {
 		return nil, err
 	}
+
 	return rslt, nil
 }
 
+// AsFloat64Slice returns the data of the series as a float64 slice,
+// and a boolean slice for the missing value indicators.
 func (ser *Series) AsFloat64Slice() ([]float64, []bool, error) {
 
 	v, ok := ser.data.([]float64)

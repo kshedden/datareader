@@ -52,7 +52,7 @@ func sasBaseTest(fname_csv, fname_sas string) bool {
 	for j := 0; j < len(dt); j++ {
 		if sas.ColumnFormats[j] == "MMDDYY" {
 			dt[j] = dt[j].ForceNumeric()
-			dt[j], err = dt[j].Date_from_duration(base, "days")
+			dt[j], err = dt[j].DateFromDuration(base, "days")
 			if err != nil {
 				panic(err)
 			}
