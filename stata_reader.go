@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// These are constants using in Dta files to represent different data types.
+// These are constants used in Dta files to represent different data types.
 const (
 	float64Type int = 65526
 	float32Type int = 65527
@@ -553,8 +553,7 @@ func (rdr *StataReader) readNewHeader() error {
 		return err
 	}
 	if n != int(n8) {
-		err := fmt.Errorf("stata file appears to be truncated")
-		logerr(err)
+		logerr(fmt.Errorf("stata file appears to be truncated"))
 		return err
 	}
 	rdr.TimeStamp = string(buf[0:n8])

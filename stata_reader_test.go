@@ -39,6 +39,21 @@ func stataBaseTest(fnameCsv, fnameStata string) bool {
 	defer r.Close()
 	stata.InsertCategoryLabels = false
 
+	// Both test files have 10 rows.
+	if stata.RowCount() != 10 {
+		return false
+	}
+
+	// The test files have the same column names
+	if len(stata.ColumnNames()) != 100 {
+		return false
+	}
+	for j, na := range stata.ColumnNames() {
+		if na != fmt.Sprintf("column%d", j+1) {
+			return false
+		}
+	}
+
 	ds, err := stata.Read(-1)
 	if err != nil {
 		return false

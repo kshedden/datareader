@@ -1,6 +1,7 @@
 clear
 import delimited "data/test1.csv"
 recast double column1
+recast strL column2
 recast long column3
 format column4 %td
 format column12 %td
@@ -9,6 +10,7 @@ save "data/test1_118.dta", replace
 clear
 import delimited "data/test1.csv"
 recast double column1
+recast strL column2
 recast long column3
 format column4 %td
 format column12 %td
