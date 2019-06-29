@@ -1,4 +1,5 @@
 // https://www.loc.gov/preservation/digital/formats/fdd/fdd000471.shtml
+// http://www.stata.com/help.cgi?dta
 
 package datareader
 
@@ -15,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// These are constants using in Dta files to represent different data types.
 const (
 	float64Type int = 65526
 	float32Type int = 65527
@@ -125,7 +127,7 @@ func NewStataReader(r io.ReadSeeker) (*StataReader, error) {
 	rdr := new(StataReader)
 	rdr.reader = r
 
-	// Defaults
+	// Defaults, can be changed before reading
 	rdr.InsertStrls = true
 	rdr.InsertCategoryLabels = true
 	rdr.ConvertDates = true
@@ -259,7 +261,7 @@ func (rdr *StataReader) readExpansionFields() error {
 			return err
 		}
 
-		if (b == 0) && (i == 0) {
+		if b == 0 && i == 0 {
 			break
 		}
 		if _, err := rdr.reader.Seek(int64(i), 1); err != nil {
@@ -271,6 +273,7 @@ func (rdr *StataReader) readExpansionFields() error {
 	return nil
 }
 
+// readInt reads a 1, 2, 4 or 8 byte signed integer.
 func (rdr *StataReader) readInt(width int) (int, error) {
 
 	switch width {
@@ -307,6 +310,7 @@ func (rdr *StataReader) readInt(width int) (int, error) {
 	}
 }
 
+// readUint reads a 1, 2, 4 or 8 byte unsigned integer.
 func (rdr *StataReader) readUint(width int) (int, error) {
 
 	switch width {
@@ -424,13 +428,12 @@ func (rdr *StataReader) readOldHeader() error {
 
 func (rdr *StataReader) supportedVersion() bool {
 
-	supported := false
 	for _, v := range supportedDtaVersions {
 		if rdr.FormatVersion == v {
-			supported = true
+			return true
 		}
 	}
-	return supported
+	return false
 }
 
 // readNewHeader reads a new-style xml header (versions 117+).
@@ -647,6 +650,7 @@ func (rdr *StataReader) readVartypes8() error {
 			return err
 		}
 	}
+
 	return nil
 }
 

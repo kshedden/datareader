@@ -19,12 +19,41 @@ type Series struct {
 	// The length of the series.
 	length int
 
-	// The data, must be a homogeneous array, e.g. []float64.
+	// The data, must be a slice of primitives, e.g. []float64.
 	data interface{}
 
 	// Indicators that data values are missing.  If nil, there are
 	// no missing values.
 	missing []bool
+}
+
+// ilen returns the length of a slice, held in an interface value.
+// If the interface does not hold a slice of a known type, an error
+// is returned.
+func ilen(data interface{}) (int, error) {
+
+	switch data.(type) {
+	case []float64:
+		return len(data.([]float64)), nil
+	case []string:
+		return len(data.([]string)), nil
+	case []int64:
+		return len(data.([]int64)), nil
+	case []int32:
+		return len(data.([]int32)), nil
+	case []float32:
+		return len(data.([]float32)), nil
+	case []int16:
+		return len(data.([]int16)), nil
+	case []int8:
+		return len(data.([]int8)), nil
+	case []uint64:
+		return len(data.([]uint64)), nil
+	case []time.Time:
+		return len(data.([]time.Time)), nil
+	default:
+		return 0, fmt.Errorf("Unknown data type")
+	}
 }
 
 // NewSeries returns a new Series object with the given name and data
@@ -33,36 +62,17 @@ type Series struct {
 // impact the series.
 func NewSeries(name string, data interface{}, missing []bool) (*Series, error) {
 
-	var length int
-
-	switch data.(type) {
-	default:
-		return nil, fmt.Errorf("Unknown data type in NewSeries")
-	case []float64:
-		length = len(data.([]float64))
-	case []string:
-		length = len(data.([]string))
-	case []int64:
-		length = len(data.([]int64))
-	case []int32:
-		length = len(data.([]int32))
-	case []float32:
-		length = len(data.([]float32))
-	case []int16:
-		length = len(data.([]int16))
-	case []int8:
-		length = len(data.([]int8))
-	case []uint64:
-		length = len(data.([]uint64))
-	case []time.Time:
-		length = len(data.([]time.Time))
+	length, err := ilen(data)
+	if err != nil {
+		return nil, err
 	}
 
 	ser := Series{
 		Name:    name,
 		length:  length,
 		data:    data,
-		missing: missing}
+		missing: missing,
+	}
 
 	return &ser, nil
 }
@@ -84,13 +94,12 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 	}
 
 	switch ser.data.(type) {
-	default:
-		panic("Unknown type in WriteRange")
 	case []float64:
 		data := ser.data.([]float64)
 		for j := first; j < last; j++ {
-			if (ser.missing == nil) || !ser.missing[j] {
-				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+			if ser.missing == nil || !ser.missing[j] {
+				s := fmt.Sprintf("%d:  %f\n", j, data[j])
+				if _, err := io.WriteString(w, s); err != nil {
 					panic(err)
 				}
 			} else {
@@ -102,8 +111,9 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 	case []float32:
 		data := ser.data.([]float32)
 		for j := first; j < last; j++ {
-			if (ser.missing == nil) || !ser.missing[j] {
-				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+			if ser.missing == nil || !ser.missing[j] {
+				s := fmt.Sprintf("%d:  %f\n", j, data[j])
+				if _, err := io.WriteString(w, s); err != nil {
 					panic(err)
 				}
 			} else {
@@ -115,8 +125,9 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 	case []int64:
 		data := ser.data.([]int64)
 		for j := first; j < last; j++ {
-			if (ser.missing == nil) || !ser.missing[j] {
-				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+			if ser.missing == nil || !ser.missing[j] {
+				s := fmt.Sprintf("%d:  %d\n", j, data[j])
+				if _, err := io.WriteString(w, s); err != nil {
 					panic(err)
 				}
 			} else {
@@ -128,8 +139,9 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 	case []int32:
 		data := ser.data.([]int32)
 		for j := first; j < last; j++ {
-			if (ser.missing == nil) || !ser.missing[j] {
-				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+			if ser.missing == nil || !ser.missing[j] {
+				s := fmt.Sprintf("%d:  %d\n", j, data[j])
+				if _, err := io.WriteString(w, s); err != nil {
 					panic(err)
 				}
 			} else {
@@ -141,8 +153,9 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 	case []int16:
 		data := ser.data.([]int16)
 		for j := first; j < last; j++ {
-			if (ser.missing == nil) || !ser.missing[j] {
-				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+			if ser.missing == nil || !ser.missing[j] {
+				s := fmt.Sprintf("%d:  %d\n", j, data[j])
+				if _, err := io.WriteString(w, s); err != nil {
 					panic(err)
 				}
 			} else {
@@ -154,8 +167,9 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 	case []int8:
 		data := ser.data.([]int8)
 		for j := first; j < last; j++ {
-			if (ser.missing == nil) || !ser.missing[j] {
-				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+			if ser.missing == nil || !ser.missing[j] {
+				s := fmt.Sprintf("%d:  %d\n", j, data[j])
+				if _, err := io.WriteString(w, s); err != nil {
 					panic(err)
 				}
 			} else {
@@ -167,8 +181,9 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 	case []uint64:
 		data := ser.data.([]uint64)
 		for j := first; j < last; j++ {
-			if (ser.missing == nil) || !ser.missing[j] {
-				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+			if ser.missing == nil || !ser.missing[j] {
+				s := fmt.Sprintf("%d:  %d\n", j, data[j])
+				if _, err := io.WriteString(w, s); err != nil {
 					panic(err)
 				}
 			} else {
@@ -180,8 +195,9 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 	case []string:
 		data := ser.data.([]string)
 		for j := first; j < last; j++ {
-			if (ser.missing == nil) || !ser.missing[j] {
-				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+			if ser.missing == nil || !ser.missing[j] {
+				s := fmt.Sprintf("%d:  %s\n", j, data[j])
+				if _, err := io.WriteString(w, s); err != nil {
 					panic(err)
 				}
 			} else {
@@ -193,8 +209,9 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 	case []time.Time:
 		data := ser.data.([]time.Time)
 		for j := first; j < last; j++ {
-			if (ser.missing == nil) || !ser.missing[j] {
-				if _, err := io.WriteString(w, fmt.Sprintf("%d:  %v\n", j, data[j])); err != nil {
+			if ser.missing == nil || !ser.missing[j] {
+				s := fmt.Sprintf("%d:  %v\n", j, data[j])
+				if _, err := io.WriteString(w, s); err != nil {
 					panic(err)
 				}
 			} else {
@@ -203,6 +220,8 @@ func (ser *Series) WriteRange(w io.Writer, first, last int) {
 				}
 			}
 		}
+	default:
+		panic("Unknown type in WriteRange")
 	}
 }
 

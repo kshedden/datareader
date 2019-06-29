@@ -1,23 +1,31 @@
 clear
 import delimited "data/test1.csv"
+recast double column1
+recast long column3
 format column4 %td
 format column12 %td
 save "data/test1_118.dta", replace
 
 clear
 import delimited "data/test1.csv"
+recast double column1
+recast long column3
 format column4 %td
 format column12 %td
 saveold "data/test1_117.dta", replace
 
 clear
 import delimited "data/test1.csv"
+recast double column1
+recast long column3
 format column4 %td
 format column12 %td
 saveold "data/test1_115.dta", version(12) replace
 
 clear
 import delimited "data/test1.csv"
+recast double column1
+recast long column3
 format column4 %td
 format column12 %td
 saveold "data/test1_115b.dta", version(11) replace

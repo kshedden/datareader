@@ -45,7 +45,7 @@ func doSplit(rdr datareader.Statfilereader, colDir string, mode string) {
 		fn := filepath.Join(colDir, fmt.Sprintf("%d", j))
 		f, err := os.Create(fn)
 		if err != nil {
-			os.Stderr.WriteString(fmt.Sprintf("unable to create file for column %d: %v\n", j+1, err))
+			os.Stderr.WriteString(fmt.Sprintf("unable to create file for column %d: %v\n", j, err))
 		}
 		defer f.Close()
 
@@ -121,7 +121,7 @@ func doSplit(rdr datareader.Statfilereader, colDir string, mode string) {
 func main() {
 
 	if len(os.Args) != 4 {
-		os.Stderr.WriteString(fmt.Sprintf("usage: %s -in=file -out=directory -mode=mode\n", os.Args[0]))
+		os.Stderr.WriteString(fmt.Sprintf("usage: %s -in=file -out=directory -mode=[text|binary]\n", os.Args[0]))
 		return
 	}
 
