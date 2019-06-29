@@ -934,12 +934,12 @@ func (rdr *StataReader) readValueLabels() error {
 		if cap(buf) < int(textlen) {
 			buf = make([]byte, 2*textlen)
 		}
+
 		if _, err := rdr.reader.Read(buf[0:textlen]); err != nil {
 			return err
 		}
 
 		vk := make(map[int32]string)
-
 		for j := int32(0); j < n; j++ {
 			vk[val[j]] = string(partition(buf[off[j]:]))
 		}
@@ -950,6 +950,7 @@ func (rdr *StataReader) readValueLabels() error {
 			return err
 		}
 	}
+
 	rdr.ValueLabels = vl
 
 	return nil
@@ -1014,16 +1015,18 @@ func (rdr *StataReader) readStrls() error {
 			return err
 		}
 
-		if t == 130 {
+		switch t {
+		case 130:
 			buf = partition(buf[0:length])
 			rdr.Strls[ptr] = string(buf)
-		} else if t == 129 {
+		case 129:
 			rdr.StrlsBytes[ptr] = make([]byte, length)
 			copy(rdr.StrlsBytes[ptr], buf[0:length])
-		} else {
+		default:
 			return fmt.Errorf("unknown t value")
 		}
 	}
+
 	return nil
 }
 
@@ -1087,6 +1090,86 @@ func (rdr *StataReader) doInsertCategoryLabels(data []interface{}, missing [][]b
 	}
 }
 
+func (rdr *StataReader) readRow(i int, buf, buf8 []byte, data []interface{}, missing [][]bool) {
+
+	for j := 0; j < rdr.Nvar; j++ {
+		switch t := rdr.varTypes[j]; {
+		case t <= 2045:
+			// strf
+			if _, err := rdr.reader.Read(buf[0:t]); err != nil {
+				panic(err)
+			}
+			data[j].([]string)[i] = string(partition(buf[0:t]))
+		case t == strlType:
+			if rdr.InsertStrls {
+				// The STRL pointer is 2 byte integer followed by 6 byte integer
+				// or 4 + 4 depending on the version
+				if err := binary.Read(rdr.reader, rdr.ByteOrder, buf8); err != nil {
+					panic(err)
+				}
+				var ptr uint64
+				if err := binary.Read(bytes.NewReader(buf8), rdr.ByteOrder, &ptr); err != nil {
+					panic(err)
+				}
+				data[j].([]string)[i] = rdr.Strls[ptr]
+			} else {
+				if err := binary.Read(rdr.reader, rdr.ByteOrder, &(data[j].([]uint64)[i])); err != nil {
+					panic(err)
+				}
+			}
+		case t == float64Type:
+			var x float64
+			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
+				panic(err)
+			}
+			data[j].([]float64)[i] = x
+			// Lower bound in dta spec is out of range.
+			if x > 8.988e307 || x < -8.988e307 {
+				missing[j][i] = true
+			}
+		case t == float32Type:
+			var x float32
+			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
+				panic(err)
+			}
+			data[j].([]float32)[i] = x
+			if x > 1.701e38 || x < -1.701e38 {
+				missing[j][i] = true
+			}
+		case t == int32Type:
+			var x int32
+			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
+				panic(err)
+			}
+			data[j].([]int32)[i] = x
+			if x > 2147483620 || x < -2147483647 {
+				missing[j][i] = true
+			}
+		case t == int16Type:
+			var x int16
+			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
+				panic(err)
+			}
+			data[j].([]int16)[i] = x
+			if x > 32740 || x < -32767 {
+				missing[j][i] = true
+			}
+		case t == int8Type:
+			var x int8
+			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
+				panic(err)
+			}
+			if x < -127 || x > 100 {
+				missing[j][i] = true
+			}
+			data[j].([]int8)[i] = x
+		default:
+			msg := fmt.Sprintf("Unknown variable type")
+			panic(msg)
+		}
+	}
+}
+
 // Read returns the given number of rows of data from the Stata data
 // file.  The data are returned as an array of Series objects.  If
 // rows is negative, the remainder of the file is read.
@@ -1122,83 +1205,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 			break
 		}
 
-		for j := 0; j < rdr.Nvar; j++ {
-
-			switch t := rdr.varTypes[j]; {
-			case t <= 2045:
-				// strf
-				if _, err := rdr.reader.Read(buf[0:t]); err != nil {
-					panic(err)
-				}
-				data[j].([]string)[i] = string(partition(buf[0:t]))
-			case t == strlType:
-				if rdr.InsertStrls {
-					// The STRL pointer is 2 byte integer followed by 6 byte integer
-					// or 4 + 4 depending on the version
-					if err := binary.Read(rdr.reader, rdr.ByteOrder, buf8); err != nil {
-						panic(err)
-					}
-					var ptr uint64
-					if err := binary.Read(bytes.NewReader(buf8), rdr.ByteOrder, &ptr); err != nil {
-						panic(err)
-					}
-					data[j].([]string)[i] = rdr.Strls[ptr]
-				} else {
-					if err := binary.Read(rdr.reader, rdr.ByteOrder, &(data[j].([]uint64)[i])); err != nil {
-						panic(err)
-					}
-				}
-			case t == float64Type:
-				var x float64
-				if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
-					panic(err)
-				}
-				data[j].([]float64)[i] = x
-				// Lower bound in dta spec is out of range.
-				if x > 8.988e307 || x < -8.988e307 {
-					missing[j][i] = true
-				}
-			case t == float32Type:
-				var x float32
-				if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
-					panic(err)
-				}
-				data[j].([]float32)[i] = x
-				if x > 1.701e38 || x < -1.701e38 {
-					missing[j][i] = true
-				}
-			case t == int32Type:
-				var x int32
-				if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
-					panic(err)
-				}
-				data[j].([]int32)[i] = x
-				if x > 2147483620 || x < -2147483647 {
-					missing[j][i] = true
-				}
-			case t == int16Type:
-				var x int16
-				if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
-					panic(err)
-				}
-				data[j].([]int16)[i] = x
-				if x > 32740 || x < -32767 {
-					missing[j][i] = true
-				}
-			case t == int8Type:
-				var x int8
-				if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
-					panic(err)
-				}
-				if x < -127 || x > 100 {
-					missing[j][i] = true
-				}
-				data[j].([]int8)[i] = x
-			default:
-				msg := fmt.Sprintf("Unknown variable type")
-				panic(msg)
-			}
-		}
+		rdr.readRow(i, buf, buf8, data, missing)
 	}
 
 	if rdr.InsertCategoryLabels {
