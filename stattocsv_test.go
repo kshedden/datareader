@@ -88,15 +88,15 @@ func getFilenames() []string {
 
 func TestStattocsv1(t *testing.T) {
 
-	test_files := getFilenames()
-	new_checksums := runStattocsv(test_files)
-	old_checksums := refChecksums(test_files)
+	testFiles := getFilenames()
+	newChecksums := runStattocsv(testFiles)
+	oldChecksums := refChecksums(testFiles)
 
-	for ky := range old_checksums {
+	for ky := range oldChecksums {
 
 		for j := 0; j < 16; j++ {
-			if new_checksums[ky][j] != old_checksums[ky][j] {
-				fmt.Printf("%v\n%v\n%v\n\n", ky, new_checksums[ky], old_checksums[ky])
+			if newChecksums[ky][j] != oldChecksums[ky][j] {
+				fmt.Printf("%v\n%v\n%v\n\n", ky, newChecksums[ky], oldChecksums[ky])
 				t.Fail()
 			}
 		}

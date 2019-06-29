@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-func sasBaseTest(fname_csv, fname_sas string) bool {
+func sasBaseTest(fnameCSV, fnameSAS string) bool {
 
-	f, err := os.Open(filepath.Join("test_files", "data", fname_csv))
+	f, err := os.Open(filepath.Join("test_files", "data", fnameCSV))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
@@ -25,7 +25,7 @@ func sasBaseTest(fname_csv, fname_sas string) bool {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
 	}
-	r, err := os.Open(filepath.Join("test_files", "data", fname_sas))
+	r, err := os.Open(filepath.Join("test_files", "data", fnameSAS))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false

@@ -102,16 +102,16 @@ type StataReader struct {
 	rowsRead int
 
 	// Map information
-	seek_vartypes          int64
-	seek_varnames          int64
-	seek_sortlist          int64
-	seekFormats            int64
-	seek_value_label_names int64
-	seek_variable_labels   int64
-	seek_characteristics   int64
-	seek_data              int64
-	seek_strls             int64
-	seek_value_labels      int64
+	seekVartypes        int64
+	seekVarnames        int64
+	seekSortlist        int64
+	seekFormats         int64
+	seekValueLabelNames int64
+	seekVariableLabels  int64
+	seekCharacteristics int64
+	seekData            int64
+	seekStrls           int64
+	seekValueLabels     int64
 
 	// Indicates the columns that contain dates
 	isDate []bool
@@ -228,7 +228,7 @@ func (rdr *StataReader) init() error {
 	}
 
 	if rdr.FormatVersion >= 117 {
-		if err := rdr.read_strls(); err != nil {
+		if err := rdr.readStrls(); err != nil {
 			logerr(err)
 			return err
 		}
@@ -275,7 +275,7 @@ func (rdr *StataReader) readInt(width int) (int, error) {
 
 	switch width {
 	default:
-		return 0, fmt.Errorf("unsupported width %d in read_int", width)
+		return 0, fmt.Errorf("unsupported width %d in readInt", width)
 	case 1:
 		var x int8
 		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
@@ -307,11 +307,11 @@ func (rdr *StataReader) readInt(width int) (int, error) {
 	}
 }
 
-func (rdr *StataReader) read_uint(width int) (int, error) {
+func (rdr *StataReader) readUint(width int) (int, error) {
 
 	switch width {
 	default:
-		panic("unsupported width in read_int")
+		panic("unsupported width in readUint")
 	case 1:
 		var x uint8
 		err := binary.Read(rdr.reader, rdr.ByteOrder, &x)
@@ -517,7 +517,7 @@ func (rdr *StataReader) readNewHeader() error {
 	}
 
 	// Data set label
-	w, err := rdr.read_uint(datasetLabelLength[rdr.FormatVersion])
+	w, err := rdr.readUint(datasetLabelLength[rdr.FormatVersion])
 	if err != nil {
 		logerr(err)
 		return err
@@ -563,34 +563,34 @@ func (rdr *StataReader) readNewHeader() error {
 	}
 
 	// Map
-	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_vartypes); err != nil {
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seekVartypes); err != nil {
 		return err
 	}
-	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_varnames); err != nil {
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seekVarnames); err != nil {
 		return err
 	}
-	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_sortlist); err != nil {
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seekSortlist); err != nil {
 		return err
 	}
 	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seekFormats); err != nil {
 		return err
 	}
-	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_value_label_names); err != nil {
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seekValueLabelNames); err != nil {
 		return err
 	}
-	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_variable_labels); err != nil {
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seekVariableLabels); err != nil {
 		return err
 	}
-	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_characteristics); err != nil {
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seekCharacteristics); err != nil {
 		return err
 	}
-	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_data); err != nil {
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seekData); err != nil {
 		return err
 	}
-	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_strls); err != nil {
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seekStrls); err != nil {
 		return err
 	}
-	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seek_value_labels); err != nil {
+	if err := binary.Read(rdr.reader, rdr.ByteOrder, &rdr.seekValueLabels); err != nil {
 		return err
 	}
 
@@ -603,23 +603,23 @@ func (rdr *StataReader) readVartypes() error {
 
 	switch {
 	case rdr.FormatVersion == 118:
-		err = rdr.read_vartypes_16()
+		err = rdr.readVartypes16()
 	case rdr.FormatVersion == 117:
-		err = rdr.read_vartypes_16()
+		err = rdr.readVartypes16()
 	case rdr.FormatVersion == 115:
-		err = rdr.read_vartypes_8()
+		err = rdr.readVartypes8()
 	case rdr.FormatVersion == 114:
-		err = rdr.read_vartypes_8()
+		err = rdr.readVartypes8()
 	default:
-		err = fmt.Errorf("unknown format version %v in read_vartypes", rdr.FormatVersion)
+		err = fmt.Errorf("unknown format version %v", rdr.FormatVersion)
 	}
 
 	return err
 }
 
-func (rdr *StataReader) read_vartypes_16() error {
+func (rdr *StataReader) readVartypes16() error {
 
-	if _, err := rdr.reader.Seek(rdr.seek_vartypes+16, 0); err != nil {
+	if _, err := rdr.reader.Seek(rdr.seekVartypes+16, 0); err != nil {
 		logerr(err)
 		return err
 	}
@@ -627,7 +627,7 @@ func (rdr *StataReader) read_vartypes_16() error {
 	rdr.varTypes = make([]int, rdr.Nvar)
 	for k := range rdr.varTypes {
 		var err error
-		rdr.varTypes[k], err = rdr.read_uint(2)
+		rdr.varTypes[k], err = rdr.readUint(2)
 		if err != nil {
 			logerr(err)
 			return err
@@ -637,11 +637,11 @@ func (rdr *StataReader) read_vartypes_16() error {
 	return nil
 }
 
-func (rdr *StataReader) read_vartypes_8() error {
+func (rdr *StataReader) readVartypes8() error {
 	var err error
 	rdr.varTypes = make([]int, rdr.Nvar)
 	for k := range rdr.varTypes {
-		rdr.varTypes[k], err = rdr.read_uint(1)
+		rdr.varTypes[k], err = rdr.readUint(1)
 		if err != nil {
 			logerr(err)
 			return err
@@ -768,7 +768,7 @@ func (rdr *StataReader) doReadVarnames(bufsize int, seek bool) error {
 
 	buf := make([]byte, bufsize)
 	if seek {
-		_, err := rdr.reader.Seek(rdr.seek_varnames+10, 0)
+		_, err := rdr.reader.Seek(rdr.seekVarnames+10, 0)
 		if err != nil {
 			panic(err)
 		}
@@ -816,7 +816,7 @@ func (rdr *StataReader) doReadValueLabelNames(bufsize int, seek bool) error {
 
 	buf := make([]byte, bufsize)
 	if seek {
-		if _, err := rdr.reader.Seek(rdr.seek_value_label_names+19, 0); err != nil {
+		if _, err := rdr.reader.Seek(rdr.seekValueLabelNames+19, 0); err != nil {
 			logerr(err)
 			return err
 		}
@@ -859,7 +859,7 @@ func (rdr *StataReader) doReadVariableLabels(bufsize int, seek bool) error {
 
 	buf := make([]byte, bufsize)
 	if seek {
-		if _, err := rdr.reader.Seek(rdr.seek_variable_labels+17, 0); err != nil {
+		if _, err := rdr.reader.Seek(rdr.seekVariableLabels+17, 0); err != nil {
 			logerr(err)
 			return err
 		}
@@ -882,7 +882,7 @@ func (rdr *StataReader) readValueLabels() error {
 	vl := make(map[string]map[int32]string)
 	buf := make([]byte, 321)
 
-	if _, err := rdr.reader.Seek(rdr.seek_value_labels+14, 0); err != nil {
+	if _, err := rdr.reader.Seek(rdr.seekValueLabels+14, 0); err != nil {
 		return err
 	}
 
@@ -955,9 +955,9 @@ func (rdr *StataReader) readValueLabels() error {
 	return nil
 }
 
-func (rdr *StataReader) read_strls() error {
+func (rdr *StataReader) readStrls() error {
 
-	if _, err := rdr.reader.Seek(rdr.seek_strls+7, 0); err != nil {
+	if _, err := rdr.reader.Seek(rdr.seekStrls+7, 0); err != nil {
 		return err
 	}
 
@@ -1027,26 +1027,9 @@ func (rdr *StataReader) read_strls() error {
 	return nil
 }
 
-// Read returns the given number of rows of data from the Stata data
-// file.  The data are returned as an array of Series objects.  If
-// rows is negative, the remainder of the file is read.
-func (rdr *StataReader) Read(rows int) ([]*Series, error) {
+func (rdr *StataReader) allocateCols(nval int) []interface{} {
 
 	data := make([]interface{}, rdr.Nvar)
-	missing := make([][]bool, rdr.Nvar)
-
-	// Compute number of values to read
-	nval := int(rdr.rowCount) - rdr.rowsRead
-	if rows >= 0 && rows < nval {
-		nval = rows
-	} else if nval <= 0 {
-		return nil, nil
-	}
-
-	for j := 0; j < int(rdr.Nvar); j++ {
-		missing[j] = make([]bool, nval)
-	}
-
 	for j, t := range rdr.varTypes {
 		switch {
 		case t <= 2045:
@@ -1068,12 +1051,64 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 		case t == int8Type:
 			data[j] = make([]int8, nval)
 		default:
-			return nil, fmt.Errorf("unknown variable type: %v", t)
+			panic(fmt.Sprintf("unknown variable type: %v", t))
 		}
 	}
 
+	return data
+}
+
+func (rdr *StataReader) doInsertCategoryLabels(data []interface{}, missing [][]bool, nval int) {
+
+	for j := 0; j < rdr.Nvar; j++ {
+		labname := rdr.ValueLabelNames[j]
+		mp, ok := rdr.ValueLabels[labname]
+		if !ok {
+			continue
+		}
+
+		idat, err := castToInt(data[j])
+		if err != nil {
+			panic(fmt.Sprintf("non-integer value label indices: %v", err))
+		}
+
+		newdata := make([]string, nval)
+		for i := 0; i < nval; i++ {
+			if !missing[j][i] {
+				v, ok := mp[int32(idat[i])]
+				if ok {
+					newdata[i] = v
+				} else {
+					newdata[i] = fmt.Sprintf("%v", idat[i])
+				}
+			}
+		}
+		data[j] = newdata
+	}
+}
+
+// Read returns the given number of rows of data from the Stata data
+// file.  The data are returned as an array of Series objects.  If
+// rows is negative, the remainder of the file is read.
+func (rdr *StataReader) Read(rows int) ([]*Series, error) {
+
+	// Compute number of values to read
+	nval := int(rdr.rowCount) - rdr.rowsRead
+	if rows >= 0 && rows < nval {
+		nval = rows
+	} else if nval <= 0 {
+		return nil, nil
+	}
+
+	data := rdr.allocateCols(nval)
+	missing := make([][]bool, rdr.Nvar)
+
+	for j := 0; j < int(rdr.Nvar); j++ {
+		missing[j] = make([]bool, nval)
+	}
+
 	if rdr.FormatVersion >= 117 && rdr.rowsRead == 0 {
-		if _, err := rdr.reader.Seek(rdr.seek_data+6, 0); err != nil {
+		if _, err := rdr.reader.Seek(rdr.seekData+6, 0); err != nil {
 			return nil, err
 		}
 	}
@@ -1167,31 +1202,7 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 	}
 
 	if rdr.InsertCategoryLabels {
-		for j := 0; j < rdr.Nvar; j++ {
-			labname := rdr.ValueLabelNames[j]
-			mp, ok := rdr.ValueLabels[labname]
-			if !ok {
-				continue
-			}
-
-			idat, err := castToInt(data[j])
-			if err != nil {
-				panic(fmt.Sprintf("non-integer value label indices: %v", err))
-			}
-
-			newdata := make([]string, nval)
-			for i := 0; i < nval; i++ {
-				if !missing[j][i] {
-					v, ok := mp[int32(idat[i])]
-					if ok {
-						newdata[i] = v
-					} else {
-						newdata[i] = fmt.Sprintf("%v", idat[i])
-					}
-				}
-			}
-			data[j] = newdata
-		}
+		rdr.doInsertCategoryLabels(data, missing, nval)
 	}
 
 	if rdr.ConvertDates {
