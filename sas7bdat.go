@@ -278,7 +278,7 @@ const (
 	column_label_text_subheader_index_length  = 2
 	column_label_offset_offset                = 30
 	column_label_offset_length                = 2
-	column_label_length_offset				  = 32
+	column_label_length_offset                = 32
 	column_label_length_length                = 2
 	rle_compression                           = "SASYZCRL"
 	rdc_compression                           = "SASYZCR2"
