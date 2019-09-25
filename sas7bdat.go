@@ -31,6 +31,9 @@ type SAS7BDAT struct {
 
 	// Formats for the columns
 	ColumnFormats []string
+	
+	// Labels for the columns
+	ColumnLabels []string
 
 	// If true, trim whitespace from right of each string variable
 	// (SAS7BDAT strings are fixed width)
@@ -275,6 +278,7 @@ const (
 	column_label_text_subheader_index_length  = 2
 	column_label_offset_offset                = 30
 	column_label_offset_length                = 2
+	column_label_length_offset                = 32
 	column_label_length_length                = 2
 	rle_compression                           = "SASYZCRL"
 	rdc_compression                           = "SASYZCR2"
@@ -671,6 +675,9 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 			if sas.ConvertDates && (sas.ColumnFormats[j] == "MMDDYY") {
 				tvec := to_date(vec)
 				rslt[j], _ = NewSeries(name, tvec, miss)
+			} else if sas.ConvertDates && (sas.ColumnFormats[j] == "DATETIME") {
+				tvec := to_date_time(vec)
+				rslt[j], _ = NewSeries(name, tvec, miss)
 			} else {
 				rslt[j], _ = NewSeries(name, vec, miss)
 			}
@@ -696,6 +703,22 @@ func to_date(x []float64) []time.Time {
 
 	for j, v := range x {
 		rslt[j] = base.Add(time.Hour * time.Duration(24*v))
+	}
+
+	return rslt
+}
+
+func date_time(x float64) time.Time {
+	// Timestamp is epoch 01/01/1960
+	base := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
+	return base.Add(time.Duration(x) * time.Second)
+}
+
+func to_date_time(x []float64) []time.Time {
+	rslt := make([]time.Time, len(x))
+
+	for j, v := range x {
+		rslt[j] = date_time(v)
 	}
 
 	return rslt
@@ -925,19 +948,17 @@ func (sas *SAS7BDAT) getProperties() error {
 	}
 	sas.FileType = string(sas.buf[0:file_type_length])
 
-	// Timestamp is epoch 01/01/1960
-	epoch := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
 	x, err := sas.read_float(date_created_offset+align1, date_created_length)
 	if err != nil {
 		return err
 	}
-	sas.DateCreated = epoch.Add(time.Duration(x) * time.Second)
+	sas.DateCreated = date_time(x)
 
 	x, err = sas.read_float(date_modified_offset+align1, date_modified_length)
 	if err != nil {
 		return err
 	}
-	sas.DateModified = epoch.Add(time.Duration(x) * time.Second)
+	sas.DateModified = date_time(x)
 
 	prop.header_length, err = sas.read_int(header_size_offset+align1, header_size_length)
 	if err != nil {
@@ -1415,10 +1436,10 @@ func (sas *SAS7BDAT) process_format_subheader(offset, length int) error {
 	col_format_len := offset + column_format_length_offset + 3*int_len
 	text_subheader_label := offset + column_label_text_subheader_index_offset + 3*int_len
 	col_label_offset := offset + column_label_offset_offset + 3*int_len
-	col_label_len := offset + column_label_offset_length + 3*int_len
+	col_label_len := offset + column_label_length_offset + 3*int_len
 
-	x, _ := sas.read_int(text_subheader_format, column_format_text_subheader_index_length)
-	format_idx := min(x, len(sas.column_names_strings)-1)
+	format_idx, _ := sas.read_int(text_subheader_format, column_format_text_subheader_index_length)
+	format_idx = min(format_idx, len(sas.column_names_strings)-1)
 
 	format_start, _ := sas.read_int(col_format_offset, column_format_offset_length)
 	format_len, _ := sas.read_int(col_format_len, column_format_length_length)
@@ -1441,7 +1462,8 @@ func (sas *SAS7BDAT) process_format_subheader(offset, length int) error {
 		column_format,
 		sas.column_types[current_column_number],
 		sas.column_data_lengths[current_column_number]}
-
+	
+	sas.ColumnLabels = append(sas.ColumnLabels, column_label)
 	sas.ColumnFormats = append(sas.ColumnFormats, column_format)
 	sas.columns = append(sas.columns, col)
 
