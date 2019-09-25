@@ -278,6 +278,7 @@ const (
 	column_label_text_subheader_index_length  = 2
 	column_label_offset_offset                = 30
 	column_label_offset_length                = 2
+	column_label_length_offset				  = 32
 	column_label_length_length                = 2
 	rle_compression                           = "SASYZCRL"
 	rdc_compression                           = "SASYZCR2"
@@ -1418,10 +1419,10 @@ func (sas *SAS7BDAT) process_format_subheader(offset, length int) error {
 	col_format_len := offset + column_format_length_offset + 3*int_len
 	text_subheader_label := offset + column_label_text_subheader_index_offset + 3*int_len
 	col_label_offset := offset + column_label_offset_offset + 3*int_len
-	col_label_len := offset + column_label_offset_length + 3*int_len
+	col_label_len := offset + column_label_length_offset + 3*int_len
 
-	x, _ := sas.read_int(text_subheader_format, column_format_text_subheader_index_length)
-	format_idx := min(x, len(sas.column_names_strings)-1)
+	format_idx, _ := sas.read_int(text_subheader_format, column_format_text_subheader_index_length)
+	format_idx = min(format_idx, len(sas.column_names_strings)-1)
 
 	format_start, _ := sas.read_int(col_format_offset, column_format_offset_length)
 	format_len, _ := sas.read_int(col_format_len, column_format_length_length)
