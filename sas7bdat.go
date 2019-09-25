@@ -278,7 +278,7 @@ const (
 	column_label_text_subheader_index_length  = 2
 	column_label_offset_offset                = 30
 	column_label_offset_length                = 2
-	column_label_length_offset                = 32
+	column_label_length_offset				  = 32
 	column_label_length_length                = 2
 	rle_compression                           = "SASYZCRL"
 	rdc_compression                           = "SASYZCR2"
@@ -675,6 +675,9 @@ func (sas *SAS7BDAT) chunk_to_series() []*Series {
 			if sas.ConvertDates && (sas.ColumnFormats[j] == "MMDDYY") {
 				tvec := to_date(vec)
 				rslt[j], _ = NewSeries(name, tvec, miss)
+			} else if sas.ConvertDates && (sas.ColumnFormats[j] == "DATETIME") {
+				tvec := to_date_time(vec)
+				rslt[j], _ = NewSeries(name, tvec, miss)
 			} else {
 				rslt[j], _ = NewSeries(name, vec, miss)
 			}
@@ -700,6 +703,22 @@ func to_date(x []float64) []time.Time {
 
 	for j, v := range x {
 		rslt[j] = base.Add(time.Hour * time.Duration(24*v))
+	}
+
+	return rslt
+}
+
+func date_time(x float64) time.Time {
+	// Timestamp is epoch 01/01/1960
+	base := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
+	return base.Add(time.Duration(x) * time.Second)
+}
+
+func to_date_time(x []float64) []time.Time {
+	rslt := make([]time.Time, len(x))
+
+	for j, v := range x {
+		rslt[j] = date_time(v)
 	}
 
 	return rslt
@@ -929,19 +948,17 @@ func (sas *SAS7BDAT) getProperties() error {
 	}
 	sas.FileType = string(sas.buf[0:file_type_length])
 
-	// Timestamp is epoch 01/01/1960
-	epoch := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
 	x, err := sas.read_float(date_created_offset+align1, date_created_length)
 	if err != nil {
 		return err
 	}
-	sas.DateCreated = epoch.Add(time.Duration(x) * time.Second)
+	sas.DateCreated = date_time(x)
 
 	x, err = sas.read_float(date_modified_offset+align1, date_modified_length)
 	if err != nil {
 		return err
 	}
-	sas.DateModified = epoch.Add(time.Duration(x) * time.Second)
+	sas.DateModified = date_time(x)
 
 	prop.header_length, err = sas.read_int(header_size_offset+align1, header_size_length)
 	if err != nil {
