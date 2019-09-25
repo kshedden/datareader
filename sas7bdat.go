@@ -31,6 +31,9 @@ type SAS7BDAT struct {
 
 	// Formats for the columns
 	ColumnFormats []string
+	
+	// Labels for the columns
+	ColumnLabels []string
 
 	// If true, trim whitespace from right of each string variable
 	// (SAS7BDAT strings are fixed width)
@@ -1441,7 +1444,8 @@ func (sas *SAS7BDAT) process_format_subheader(offset, length int) error {
 		column_format,
 		sas.column_types[current_column_number],
 		sas.column_data_lengths[current_column_number]}
-
+	
+	sas.ColumnLabels = append(sas.ColumnLabels, column_label)
 	sas.ColumnFormats = append(sas.ColumnFormats, column_format)
 	sas.columns = append(sas.columns, col)
 
