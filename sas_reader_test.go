@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func sasBaseTest(fnameCSV, fnameSAS string) bool {
+func sasBaseTest(fnameCSV, fnameSAS string, factorizeStrings bool) bool {
 
 	f, err := os.Open(filepath.Join("test_files", "data", fnameCSV))
 	if err != nil {
@@ -17,6 +17,7 @@ func sasBaseTest(fnameCSV, fnameSAS string) bool {
 	}
 	defer f.Close()
 
+	// Read the whole CSV file
 	rt := NewCSVReader(f)
 	rt.HasHeader = true
 	rt.TypeHintsName = map[string]string{"Column 1": "float64"}
@@ -25,6 +26,8 @@ func sasBaseTest(fnameCSV, fnameSAS string) bool {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
 	}
+
+	// Open the SAS file
 	r, err := os.Open(filepath.Join("test_files", "data", fnameSAS))
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
@@ -32,6 +35,7 @@ func sasBaseTest(fnameCSV, fnameSAS string) bool {
 	}
 	defer r.Close()
 
+	// Set up the SAS reader
 	sas, err := NewSAS7BDATReader(r)
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
@@ -39,15 +43,16 @@ func sasBaseTest(fnameCSV, fnameSAS string) bool {
 	}
 	sas.TrimStrings = true
 	sas.ConvertDates = true
+	sas.FactorizeStrings = factorizeStrings
 
-	ncol := len(sas.ColumnNames())
-
+	// Read the whole SAS file
 	ds, err := sas.Read(-1)
 	if err != nil {
 		os.Stderr.WriteString(fmt.Sprintf("%v\n", err))
 		return false
 	}
 
+	// Convert the dates from the CSV file so that they are comparable to the SAS dates.
 	base := time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
 	for j := 0; j < len(dt); j++ {
 		if sas.ColumnFormats[j] == "MMDDYY" {
@@ -59,24 +64,49 @@ func sasBaseTest(fnameCSV, fnameSAS string) bool {
 		}
 	}
 
+	if factorizeStrings {
+		return compare(ds, dt, sas, sas.StringFactorMap())
+	} else {
+		return compare(ds, dt, sas, nil)
+	}
+}
+
+func compare(ds, dt []*Series, sas *SAS7BDAT, stringFactorMap map[uint64]string) bool {
+
 	if len(ds) != len(dt) {
 		return false
 	}
 
-	for j := 0; j < ncol; j++ {
-		fl, ix := ds[j].AllClose(dt[j], 1e-5)
-		if !fl {
-			fmt.Printf("Not equal:\nSAS:\n")
-			if ix == -1 {
-				fmt.Printf("  Unequal lengths\n")
-			} else if ix == -2 {
-				fmt.Printf("  Unequal types\n")
-			} else {
-				fmt.Printf("  Unequal in column %d, row %d\n", j, ix)
-				ds[j].Print()
-				dt[j].Print()
+	for j := range ds {
+
+		if sas.columnTypes[j] == StringType && stringFactorMap != nil {
+			// Compare factored strings
+			x := ds[j].Data().([]uint64)
+			y := dt[j].Data().([]string)
+			if len(x) != len(y) {
+				return false
 			}
-			return false
+			for i := range x {
+				if stringFactorMap[x[i]] != y[i] {
+					return false
+				}
+			}
+		} else {
+			// Compare numbers or unfactored strings
+			fl, ix := ds[j].AllClose(dt[j], 1e-5)
+			if !fl {
+				fmt.Printf("Not equal:\nSAS:\n")
+				if ix == -1 {
+					fmt.Printf("  Unequal lengths\n")
+				} else if ix == -2 {
+					fmt.Printf("  Unequal types\n")
+				} else {
+					fmt.Printf("  Unequal in column %d, row %d\n", j, ix)
+					ds[j].Print()
+					dt[j].Print()
+				}
+				return false
+			}
 		}
 	}
 
@@ -87,10 +117,12 @@ func TestSASGenerated(t *testing.T) {
 
 	for k := 1; k < 16; k++ {
 		fname := fmt.Sprintf("test%d.sas7bdat", k)
-		r := sasBaseTest("test1.csv", fname)
-		if !r {
-			fmt.Printf("Failing %s\n", fname)
-			t.Fail()
+		for _, factorizeStrings := range []bool{false, true} {
+			r := sasBaseTest("test1.csv", fname, factorizeStrings)
+			if !r {
+				fmt.Printf("Failing %s\n", fname)
+				t.Fail()
+			}
 		}
 	}
 }

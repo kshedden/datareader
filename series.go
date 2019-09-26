@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// A Series is a homogeneously-typed one-dimensional sequence of data
+// A Series is a fixed-type one-dimensional sequence of data
 // values, with an optional mask for missing values.
 type Series struct {
 
@@ -56,10 +56,8 @@ func ilen(data interface{}) (int, error) {
 	}
 }
 
-// NewSeries returns a new Series object with the given name and data
-// contents.  The data parameter must be an array of floats, ints, or
-// strings.  The underlying data is not copied, so changes to data will
-// impact the series.
+// NewSeries returns a new Series value with the given name and data
+// contents.  The data slice parameter is not copied.
 func NewSeries(name string, data interface{}, missing []bool) (*Series, error) {
 
 	length, err := ilen(data)
@@ -693,6 +691,19 @@ func (ser *Series) AsFloat64Slice() ([]float64, []bool, error) {
 	v, ok := ser.data.([]float64)
 	if !ok {
 		msg := fmt.Sprintf("can't convert %T to []float64", ser.data)
+		return nil, nil, fmt.Errorf(msg)
+	}
+
+	return v, ser.missing, nil
+}
+
+// AsUint64Slice returns the data of the series as a uint64 slice,
+// and a boolean slice for the missing value indicators.
+func (ser *Series) AsUint64Slice() ([]uint64, []bool, error) {
+
+	v, ok := ser.data.([]uint64)
+	if !ok {
+		msg := fmt.Sprintf("can't convert %T to []uint64", ser.data)
 		return nil, nil, fmt.Errorf(msg)
 	}
 

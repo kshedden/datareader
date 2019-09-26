@@ -27,9 +27,6 @@ import (
 // SAS7BDAT represents a SAS data file in SAS7BDAT format.
 type SAS7BDAT struct {
 
-	// Data types of the columns
-	columnTypes []int
-
 	// Formats for the columns
 	ColumnFormats []string
 
@@ -44,14 +41,16 @@ type SAS7BDAT struct {
 	// not work for all SAS date formats)
 	ConvertDates bool
 
+	// If true, strings are represented as uint64 values.  Call
+	// the StringFactorMap method to obtain the mapping from these
+	// coded values to the actual strings that they represent.
+	FactorizeStrings bool
+
 	// The creation date of the file
 	DateCreated time.Time
 
 	// The modification date of the file
 	DateModified time.Time
-
-	// The number of rows in the file
-	rowCount int
 
 	// The name of the data set
 	Name string
@@ -89,6 +88,12 @@ type SAS7BDAT struct {
 	// A decoder for decoding text to unicode
 	TextDecoder *xencoding.Decoder
 
+	// The number of rows in the file
+	rowCount int
+
+	// Data types of the columns
+	columnTypes []ColumnTypeT
+
 	columnNames                      []string
 	buf                              []byte
 	file                             io.ReadSeeker
@@ -99,14 +104,16 @@ type SAS7BDAT struct {
 	currentRowInFileIndex            int
 	currentRowOnPageIndex            int
 	currentPageDataSubheaderPointers []*subheaderPointer
-	stringchunk                      [][]string
+	stringchunk                      [][]uint64
 	bytechunk                        [][]byte
 	currentRowInChunkIndex           int
 	columnNamesStrings               []string
 	columnDataOffsets                []int
 	columnDataLengths                []int
-	columns                          []*Column
+	columns                          []*column
 	properties                       *sasProperties
+	stringPool                       map[uint64]string
+	stringPoolR                      map[string]uint64
 }
 
 // These values don't change after the header is read.
@@ -127,12 +134,12 @@ type sasProperties struct {
 	columnCount            int
 }
 
-type Column struct {
+type column struct {
 	colId  int
 	name   string
 	label  string
 	format string
-	ctype  int
+	ctype  ColumnTypeT
 	length int
 }
 
@@ -144,20 +151,22 @@ type subheaderPointer struct {
 }
 
 const (
-	rowSizeIndex          = iota
-	columnSizeIndex       = iota
-	subheaderCountsIndex  = iota
-	columnTextIndex       = iota
-	columnNameIndex       = iota
-	columnAttributesIndex = iota
-	formatAndLabelIndex   = iota
-	columnListIndex       = iota
-	dataSubheaderIndex    = iota
+	rowSizeIndex = iota
+	columnSizeIndex
+	subheaderCountsIndex
+	columnTextIndex
+	columnNameIndex
+	columnAttributesIndex
+	formatAndLabelIndex
+	columnListIndex
+	dataSubheaderIndex
 )
 
+type ColumnTypeT uint8
+
 const (
-	number_column_type = iota
-	string_column_type = iota
+	NumericType ColumnTypeT = iota
+	StringType
 )
 
 // Subheader signatures, 32 and 64 bit, little and big endian
@@ -284,6 +293,13 @@ const (
 	rle_compression                           = "SASYZCRL"
 	rdc_compression                           = "SASYZCR2"
 )
+
+// StringFactorMap returns a map that associates integer codes
+// with the string value that each code represents.  This is only
+// relevant if FactorizeStrings is set to True.
+func (sas *SAS7BDAT) StringFactorMap() map[uint64]string {
+	return sas.stringPool
+}
 
 // Incomplete list of encodings
 var encoding_names = map[int]string{29: "latin1", 20: "utf-8", 33: "cyrillic", 60: "wlatin2",
@@ -491,6 +507,7 @@ func NewSAS7BDATReader(r io.ReadSeeker) (*SAS7BDAT, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	sas.cachedPage = make([]byte, sas.properties.pageLength)
 	err = sas.parseMetadata()
 	if err != nil {
@@ -508,6 +525,7 @@ func NewSAS7BDATReader(r io.ReadSeeker) (*SAS7BDAT, error) {
 // page (or from the beginning of the file if no page has yet been
 // read).
 func (sas *SAS7BDAT) readBytes(offset, length int) error {
+
 	sas.ensureBufSize(length)
 
 	if sas.cachedPage == nil {
@@ -604,9 +622,9 @@ func (sas *SAS7BDAT) readInt(offset, width int) (int, error) {
 // float64 or string.  If num_rows is negative, the remainder of the
 // file is read.  Returns (nil, io.EOF) when no rows remain.
 //
-// SAS strings variables have a fixed width.  By default, right
-// whitespace is trimmed from each string, but this can be turned off
-// by setting the TrimRight field in the SAS7BDAT struct.
+// SAS strings variables have a fixed width and are right-padded with
+// whitespace.  The TrimRight field of the SAS7BDAT struct can be set
+// to true to automatically trim this whitespace.
 func (sas *SAS7BDAT) Read(num_rows int) ([]*Series, error) {
 
 	if num_rows < 0 {
@@ -617,20 +635,23 @@ func (sas *SAS7BDAT) Read(num_rows int) ([]*Series, error) {
 		return nil, io.EOF
 	}
 
-	// Reallocate each time so the results are backed by
+	sas.stringPool = make(map[uint64]string)
+	sas.stringPoolR = make(map[string]uint64)
+
+	// Reallocate each call so the results are backed by
 	// completely independent memory with each call to read (to
 	// support concurrent processing of results while continuing
 	// reading).
 	sas.bytechunk = make([][]byte, sas.properties.columnCount)
-	sas.stringchunk = make([][]string, sas.properties.columnCount)
+	sas.stringchunk = make([][]uint64, sas.properties.columnCount)
 	for j := 0; j < sas.properties.columnCount; j++ {
 		switch sas.columnTypes[j] {
+		case NumericType:
+			sas.bytechunk[j] = make([]byte, 8*num_rows)
+		case StringType:
+			sas.stringchunk[j] = make([]uint64, num_rows)
 		default:
 			return nil, fmt.Errorf("unknown column type")
-		case number_column_type:
-			sas.bytechunk[j] = make([]byte, 8*num_rows)
-		case string_column_type:
-			sas.stringchunk[j] = make([]string, num_rows)
 		}
 	}
 
@@ -660,9 +681,7 @@ func (sas *SAS7BDAT) chunkToSeries() []*Series {
 		miss := make([]bool, n)
 
 		switch sas.columnTypes[j] {
-		default:
-			panic("Unknown column type")
-		case number_column_type:
+		case NumericType:
 			vec := make([]float64, n)
 			buf := bytes.NewReader(sas.bytechunk[j][0 : 8*n])
 			if err := binary.Read(buf, sas.ByteOrder, &vec); err != nil {
@@ -673,23 +692,27 @@ func (sas *SAS7BDAT) chunkToSeries() []*Series {
 					miss[i] = true
 				}
 			}
-			if sas.ConvertDates && (sas.ColumnFormats[j] == "MMDDYY") {
+			if sas.ConvertDates && sas.ColumnFormats[j] == "MMDDYY" {
 				tvec := toDate(vec)
 				rslt[j], _ = NewSeries(name, tvec, miss)
-			} else if sas.ConvertDates && (sas.ColumnFormats[j] == "DATETIME") {
+			} else if sas.ConvertDates && sas.ColumnFormats[j] == "DATETIME" {
 				tvec := toDateTime(vec)
 				rslt[j], _ = NewSeries(name, tvec, miss)
 			} else {
 				rslt[j], _ = NewSeries(name, vec, miss)
 			}
-		case string_column_type:
-			if sas.TextDecoder != nil {
-				sas.decodeStrings(n, j)
+		case StringType:
+			if sas.FactorizeStrings {
+				rslt[j], _ = NewSeries(name, sas.stringchunk[j], miss)
+			} else {
+				s := make([]string, n)
+				for i := 0; i < n; i++ {
+					s[i] = sas.stringPool[sas.stringchunk[j][i]]
+				}
+				rslt[j], _ = NewSeries(name, s, miss)
 			}
-			if sas.TrimStrings {
-				sas.trimStrings(n, j)
-			}
-			rslt[j], _ = NewSeries(name, sas.stringchunk[j][0:n], miss)
+		default:
+			panic("Unknown column type")
 		}
 	}
 
@@ -723,23 +746,6 @@ func toDateTime(x []float64) []time.Time {
 	}
 
 	return rslt
-}
-
-func (sas *SAS7BDAT) trimStrings(n, j int) {
-	for i := 0; i < n; i++ {
-		s := sas.stringchunk[j][i]
-		sas.stringchunk[j][i] = strings.TrimRight(s, "\u0000\u0020")
-	}
-}
-
-func (sas *SAS7BDAT) decodeStrings(n, j int) {
-	for i := 0; i < n; i++ {
-		s, err := sas.TextDecoder.String(sas.stringchunk[j][i])
-		if err != nil {
-			panic(err)
-		}
-		sas.stringchunk[j][i] = s
-	}
 }
 
 func (sas *SAS7BDAT) readline() (error, bool) {
@@ -1041,18 +1047,15 @@ func (sas *SAS7BDAT) readPageHeader() error {
 }
 
 func (sas *SAS7BDAT) processPageMetadata() error {
+
 	bit_offset := sas.properties.pageBitOffset
 
 	for i := 0; i < sas.currentPageSubheadersCount; i++ {
-		pointer, err := sas.processSubheaderPointers(
-			subheader_pointers_offset+bit_offset, i)
+		pointer, err := sas.processSubheaderPointers(subheader_pointers_offset+bit_offset, i)
 		if err != nil {
 			return err
 		}
-		if pointer.length == 0 {
-			continue
-		}
-		if pointer.compression == truncated_subheader_id {
+		if pointer.length == 0 || pointer.compression == truncated_subheader_id {
 			continue
 		}
 		subheader_signature, err := sas.readSubheaderSignature(pointer.offset)
@@ -1195,7 +1198,7 @@ func (sas *SAS7BDAT) processByteArrayWithData(offset, length int) error {
 		start := sas.columnDataOffsets[j]
 		end := start + length
 		temp := source[start:end]
-		if sas.columns[j].ctype == number_column_type {
+		if sas.columns[j].ctype == NumericType {
 			s := 8 * sas.currentRowInChunkIndex
 			if sas.ByteOrder == binary.LittleEndian {
 				m := 8 - length
@@ -1204,7 +1207,27 @@ func (sas *SAS7BDAT) processByteArrayWithData(offset, length int) error {
 				copy(sas.bytechunk[j][s:s+length], temp)
 			}
 		} else {
-			sas.stringchunk[j][sas.currentRowInChunkIndex] = string(temp)
+			if sas.TrimStrings {
+				temp = bytes.TrimRight(temp, "\u0000\u0020")
+			}
+			var s string
+			if sas.TextDecoder != nil {
+				var err error
+				s, err = sas.TextDecoder.String(s)
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				s = string(temp)
+			}
+
+			k, ok := sas.stringPoolR[s]
+			if !ok {
+				k = uint64(len(sas.stringPool))
+				sas.stringPool[k] = s
+				sas.stringPoolR[s] = k
+			}
+			sas.stringchunk[j][sas.currentRowInChunkIndex] = k
 		}
 	}
 
@@ -1262,10 +1285,10 @@ func (sas *SAS7BDAT) processRowSizeSubheader(offset, length int) error {
 
 func (sas *SAS7BDAT) processColumnsizeSubheader(offset, length int) error {
 
-	int_len := sas.properties.intLength
-	offset += int_len
+	intLen := sas.properties.intLength
+	offset += intLen
 	var err error
-	sas.properties.columnCount, err = sas.readInt(offset, int_len)
+	sas.properties.columnCount, err = sas.readInt(offset, intLen)
 	if err != nil {
 		return err
 	}
@@ -1281,16 +1304,13 @@ func (sas *SAS7BDAT) processColumnsizeSubheader(offset, length int) error {
 func (sas *SAS7BDAT) processColumnTextSubheader(offset, length int) error {
 
 	offset += sas.properties.intLength
-	text_block_size, err := sas.readInt(offset, text_block_size_length)
-	if err != nil {
-		return fmt.Errorf("Cannot read text block size for column names.")
-	}
+	textBlockSize := length - sas.properties.intLength
 
-	err = sas.readBytes(offset, text_block_size)
+	err := sas.readBytes(offset, textBlockSize)
 	if err != nil {
 		return fmt.Errorf("Cannot read column names strings.")
 	}
-	sas.columnNamesStrings = append(sas.columnNamesStrings, string(sas.buf[0:text_block_size]))
+	sas.columnNamesStrings = append(sas.columnNamesStrings, string(sas.buf[0:textBlockSize]))
 
 	if len(sas.columnNamesStrings) == 1 {
 		column_name := sas.columnNamesStrings[0]
@@ -1354,9 +1374,9 @@ func (sas *SAS7BDAT) processColumnTextSubheader(offset, length int) error {
 
 func (sas *SAS7BDAT) processColumnNameSubheader(offset, length int) error {
 
-	int_len := sas.properties.intLength
-	offset += int_len
-	column_name_pointers_count := (length - 2*int_len - 12) / 8
+	intLen := sas.properties.intLength
+	offset += intLen
+	column_name_pointers_count := (length - 2*intLen - 12) / 8
 	for i := 0; i < column_name_pointers_count; i++ {
 		text_subheader := offset + column_name_pointer_length*(i+1) + column_name_text_subheader_offset
 		col_name_offset := offset + column_name_pointer_length*(i+1) + column_name_offset_offset
@@ -1414,9 +1434,9 @@ func (sas *SAS7BDAT) processColumnAttributesSubheader(offset, length int) error 
 			return err
 		}
 		if x == 1 {
-			sas.columnTypes = append(sas.columnTypes, number_column_type)
+			sas.columnTypes = append(sas.columnTypes, NumericType)
 		} else {
-			sas.columnTypes = append(sas.columnTypes, string_column_type)
+			sas.columnTypes = append(sas.columnTypes, StringType)
 		}
 	}
 
@@ -1451,7 +1471,7 @@ func (sas *SAS7BDAT) processFormatSubheader(offset, length int) error {
 	column_format := format_names[format_start : format_start+format_len]
 	current_column_number := len(sas.columns)
 
-	col := &Column{
+	col := &column{
 		colId:  current_column_number,
 		name:   sas.columnNames[current_column_number],
 		label:  column_label,
@@ -1478,7 +1498,7 @@ func (sas *SAS7BDAT) ColumnNames() []string {
 }
 
 // ColumnTypes returns integer codes for the column data types.
-func (sas *SAS7BDAT) ColumnTypes() []int {
+func (sas *SAS7BDAT) ColumnTypes() []ColumnTypeT {
 	return sas.columnTypes
 }
 
