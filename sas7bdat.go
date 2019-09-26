@@ -673,7 +673,8 @@ func (sas *SAS7BDAT) chunkToSeries() []*Series {
 					miss[i] = true
 				}
 			}
-			if sas.ConvertDates && (sas.ColumnFormats[j] == "MMDDYY") {
+			if sas.ConvertDates && (sas.ColumnFormats[j] == "MMDDYY" ||
+				sas.ColumnFormats[j] == "DATE") {
 				tvec := toDate(vec)
 				rslt[j], _ = NewSeries(name, tvec, miss)
 			} else if sas.ConvertDates && (sas.ColumnFormats[j] == "DATETIME") {
