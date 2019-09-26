@@ -1281,16 +1281,14 @@ func (sas *SAS7BDAT) processColumnsizeSubheader(offset, length int) error {
 func (sas *SAS7BDAT) processColumnTextSubheader(offset, length int) error {
 
 	offset += sas.properties.intLength
-	text_block_size, err := sas.readInt(offset, text_block_size_length)
-	if err != nil {
-		return fmt.Errorf("Cannot read text block size for column names.")
-	}
+	// column text subheader block starts after the signature
+	textBlockSize := length - sas.properties.intLength
 
-	err = sas.readBytes(offset, text_block_size)
+	err := sas.readBytes(offset, textBlockSize)
 	if err != nil {
 		return fmt.Errorf("Cannot read column names strings.")
 	}
-	sas.columnNamesStrings = append(sas.columnNamesStrings, string(sas.buf[0:text_block_size]))
+	sas.columnNamesStrings = append(sas.columnNamesStrings, string(sas.buf[0:textBlockSize]))
 
 	if len(sas.columnNamesStrings) == 1 {
 		column_name := sas.columnNamesStrings[0]
