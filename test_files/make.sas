@@ -30,11 +30,15 @@ data testa;
     set test1;
     format Column4 mmddyy10.;
     format Column12 mmddyy10.;
+    label Column2="Column 2 label";
+    label Column100="Column 100 label";
 
 data testb;
     set test2;
     format Column4 mmddyy10.;
     format Column12 mmddyy10.;
+    label Column2="Column 2 label";
+    label Column100="Column 100 label";
 
 data win32.test1(compress=no);
     set testa;
@@ -82,6 +86,21 @@ data aix64.test15(compress=char);
     set testa;
 
 data lin64.test16(compress=no);
+    set testb;
+
+data lin64.test17(compress=binary);
+    set testb;
+
+data lin64.test18(compress=char);
+    set testb;
+
+data win64.test19(compress=no);
+    set testb;
+
+data win64.test20(compress=binary);
+    set testb;
+
+data win64.test21(compress=char);
     set testb;
 
 run;

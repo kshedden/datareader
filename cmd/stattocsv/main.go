@@ -16,7 +16,7 @@ import (
 	"github.com/kshedden/datareader"
 )
 
-func doConversion(rdr datareader.Statfilereader) {
+func doConversion(rdr datareader.StatfileReader) {
 
 	w := csv.NewWriter(os.Stdout)
 
@@ -121,7 +121,7 @@ func main() {
 	}
 
 	// Get a reader for either a Stata or SAS file
-	var rdr datareader.Statfilereader
+	var rdr datareader.StatfileReader
 	if filetype == "sas" {
 		sas, err := datareader.NewSAS7BDATReader(f)
 		if err != nil {

@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	// Leave false when testing
 	generateColumnize = false
 )
 

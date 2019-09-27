@@ -39,6 +39,7 @@ func refChecksums(filenames []string) map[string][16]byte {
 	checksums := make(map[string][16]byte)
 
 	for _, file := range filenames {
+
 		file1 := strings.Replace(file, ".dta", ".csv", -1)
 		file1 = strings.Replace(file1, ".sas7bdat", ".csv", -1)
 
@@ -71,14 +72,16 @@ func refChecksums(filenames []string) map[string][16]byte {
 }
 
 func getFilenames() []string {
+
 	files, err := ioutil.ReadDir(filepath.Join("test_files", "data"))
 	if err != nil {
 		panic(err)
 	}
-	filenames := make([]string, 0, 10)
+
+	var filenames []string
 	for _, f := range files {
 		name := f.Name()
-		if !strings.HasPrefix(name, ".") && (strings.HasSuffix(name, ".dta") || strings.HasSuffix(name, ".sas7bdat")) {
+		if strings.HasSuffix(name, ".dta") || strings.HasSuffix(name, ".sas7bdat") {
 			filenames = append(filenames, name)
 		}
 	}

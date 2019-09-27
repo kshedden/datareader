@@ -30,9 +30,6 @@ type SAS7BDAT struct {
 	// Formats for the columns
 	ColumnFormats []string
 
-	// Labels for the columns
-	ColumnLabels []string
-
 	// If true, trim whitespace from right of each string variable
 	// (SAS7BDAT strings are fixed width)
 	TrimStrings bool
@@ -94,7 +91,12 @@ type SAS7BDAT struct {
 	// Data types of the columns
 	columnTypes []ColumnTypeT
 
-	columnNames                      []string
+	// Labels for the columns
+	columnLabels []string
+
+	// Names of the columns
+	columnNames []string
+
 	buf                              []byte
 	file                             io.ReadSeeker
 	cachedPage                       []byte
@@ -162,11 +164,11 @@ const (
 	dataSubheaderIndex
 )
 
-type ColumnTypeT uint8
+type ColumnTypeT uint16
 
 const (
-	NumericType ColumnTypeT = iota
-	StringType
+	SASNumericType ColumnTypeT = iota
+	SASStringType
 )
 
 // Subheader signatures, 32 and 64 bit, little and big endian
@@ -646,9 +648,9 @@ func (sas *SAS7BDAT) Read(num_rows int) ([]*Series, error) {
 	sas.stringchunk = make([][]uint64, sas.properties.columnCount)
 	for j := 0; j < sas.properties.columnCount; j++ {
 		switch sas.columnTypes[j] {
-		case NumericType:
+		case SASNumericType:
 			sas.bytechunk[j] = make([]byte, 8*num_rows)
-		case StringType:
+		case SASStringType:
 			sas.stringchunk[j] = make([]uint64, num_rows)
 		default:
 			return nil, fmt.Errorf("unknown column type")
@@ -681,7 +683,7 @@ func (sas *SAS7BDAT) chunkToSeries() []*Series {
 		miss := make([]bool, n)
 
 		switch sas.columnTypes[j] {
-		case NumericType:
+		case SASNumericType:
 			vec := make([]float64, n)
 			buf := bytes.NewReader(sas.bytechunk[j][0 : 8*n])
 			if err := binary.Read(buf, sas.ByteOrder, &vec); err != nil {
@@ -692,7 +694,7 @@ func (sas *SAS7BDAT) chunkToSeries() []*Series {
 					miss[i] = true
 				}
 			}
-			if sas.ConvertDates && sas.ColumnFormats[j] == "MMDDYY" {
+			if sas.ConvertDates && sas.ColumnFormats[j] == "MMDDYY" || sas.ColumnFormats[j] == "DATE" {
 				tvec := toDate(vec)
 				rslt[j], _ = NewSeries(name, tvec, miss)
 			} else if sas.ConvertDates && sas.ColumnFormats[j] == "DATETIME" {
@@ -701,7 +703,7 @@ func (sas *SAS7BDAT) chunkToSeries() []*Series {
 			} else {
 				rslt[j], _ = NewSeries(name, vec, miss)
 			}
-		case StringType:
+		case SASStringType:
 			if sas.FactorizeStrings {
 				rslt[j], _ = NewSeries(name, sas.stringchunk[j], miss)
 			} else {
@@ -1198,7 +1200,7 @@ func (sas *SAS7BDAT) processByteArrayWithData(offset, length int) error {
 		start := sas.columnDataOffsets[j]
 		end := start + length
 		temp := source[start:end]
-		if sas.columns[j].ctype == NumericType {
+		if sas.columns[j].ctype == SASNumericType {
 			s := 8 * sas.currentRowInChunkIndex
 			if sas.ByteOrder == binary.LittleEndian {
 				m := 8 - length
@@ -1434,9 +1436,9 @@ func (sas *SAS7BDAT) processColumnAttributesSubheader(offset, length int) error 
 			return err
 		}
 		if x == 1 {
-			sas.columnTypes = append(sas.columnTypes, NumericType)
+			sas.columnTypes = append(sas.columnTypes, SASNumericType)
 		} else {
-			sas.columnTypes = append(sas.columnTypes, StringType)
+			sas.columnTypes = append(sas.columnTypes, SASStringType)
 		}
 	}
 
@@ -1480,7 +1482,7 @@ func (sas *SAS7BDAT) processFormatSubheader(offset, length int) error {
 		length: sas.columnDataLengths[current_column_number],
 	}
 
-	sas.ColumnLabels = append(sas.ColumnLabels, column_label)
+	sas.columnLabels = append(sas.columnLabels, column_label)
 	sas.ColumnFormats = append(sas.ColumnFormats, column_format)
 	sas.columns = append(sas.columns, col)
 
@@ -1495,6 +1497,11 @@ func (sas *SAS7BDAT) RowCount() int {
 // ColumnNames returns the names of the columns.
 func (sas *SAS7BDAT) ColumnNames() []string {
 	return sas.columnNames
+}
+
+// ColumnLabels returns the column labels.
+func (sas *SAS7BDAT) ColumnLabels() []string {
+	return sas.columnLabels
 }
 
 // ColumnTypes returns integer codes for the column data types.

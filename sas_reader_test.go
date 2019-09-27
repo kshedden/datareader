@@ -45,6 +45,25 @@ func sasBaseTest(fnameCSV, fnameSAS string, factorizeStrings bool) bool {
 	sas.ConvertDates = true
 	sas.FactorizeStrings = factorizeStrings
 
+	// Check the column names
+	for k, na := range sas.ColumnNames() {
+		ename := fmt.Sprintf("Column%d", k+1)
+		if na != ename {
+			fmt.Printf("Column name %d is %s, should be %s\n", k, na, ename)
+			return false
+		}
+	}
+
+	// Check the column labels
+	if sas.ColumnLabels()[1] != "Column 2 label" {
+		fmt.Printf("Column label 1 is incorrect\n")
+		return false
+	}
+	if sas.ColumnLabels()[99] != "Column 100 label" {
+		fmt.Printf("Column label 100 is incorrect\n")
+		return false
+	}
+
 	// Read the whole SAS file
 	ds, err := sas.Read(-1)
 	if err != nil {
@@ -64,6 +83,7 @@ func sasBaseTest(fnameCSV, fnameSAS string, factorizeStrings bool) bool {
 		}
 	}
 
+	// Compare the data values
 	if factorizeStrings {
 		return compare(ds, dt, sas, sas.StringFactorMap())
 	} else {
@@ -79,7 +99,7 @@ func compare(ds, dt []*Series, sas *SAS7BDAT, stringFactorMap map[uint64]string)
 
 	for j := range ds {
 
-		if sas.columnTypes[j] == StringType && stringFactorMap != nil {
+		if sas.columnTypes[j] == SASStringType && stringFactorMap != nil {
 			// Compare factored strings
 			x := ds[j].Data().([]uint64)
 			y := dt[j].Data().([]string)
@@ -113,12 +133,30 @@ func compare(ds, dt []*Series, sas *SAS7BDAT, stringFactorMap map[uint64]string)
 	return true
 }
 
-func TestSASGenerated(t *testing.T) {
+// TestSASGenerated1 tests against a file with ASCII/latin-1 characters.
+// See test_files/data for a CSV version of the data file.
+func TestSASGenerated1(t *testing.T) {
 
 	for k := 1; k < 16; k++ {
 		fname := fmt.Sprintf("test%d.sas7bdat", k)
 		for _, factorizeStrings := range []bool{false, true} {
 			r := sasBaseTest("test1.csv", fname, factorizeStrings)
+			if !r {
+				fmt.Printf("Failing %s\n", fname)
+				t.Fail()
+			}
+		}
+	}
+}
+
+// TestSASGenerated2 tests against a file with many non-latin1 characters.
+// See test_files/data for a CSV version of the data file.
+func TestSASGenerated2(t *testing.T) {
+
+	for k := 16; k < 22; k++ {
+		fname := fmt.Sprintf("test%d.sas7bdat", k)
+		for _, factorizeStrings := range []bool{false, true} {
+			r := sasBaseTest("test2.csv", fname, factorizeStrings)
 			if !r {
 				fmt.Printf("Failing %s\n", fname)
 				t.Fail()

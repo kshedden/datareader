@@ -18,12 +18,12 @@ import (
 
 // These are constants used in Dta files to represent different data types.
 const (
-	float64Type int = 65526
-	float32Type int = 65527
-	int32Type   int = 65528
-	int16Type   int = 65529
-	int8Type    int = 65530
-	strlType    int = 32768
+	StataFloat64Type ColumnTypeT = 65526
+	StataFloat32Type ColumnTypeT = 65527
+	StataInt32Type   ColumnTypeT = 65528
+	StataInt16Type   ColumnTypeT = 65529
+	StataInt8Type    ColumnTypeT = 65530
+	StataStrlType    ColumnTypeT = 32768
 )
 
 var (
@@ -75,7 +75,7 @@ type StataReader struct {
 	rowCount int
 
 	// Variable types, see technical documentation for meaning
-	varTypes []int
+	varTypes []ColumnTypeT
 
 	// A name for each variable
 	columnNames []string
@@ -152,7 +152,7 @@ func (rdr *StataReader) ColumnNames() []string {
 // ColumnTypes returns integer codes corresponding to the data types
 // in the Stata file.  See the Stata dta doumentation for more
 // information.
-func (rdr *StataReader) ColumnTypes() []int {
+func (rdr *StataReader) ColumnTypes() []ColumnTypeT {
 	return rdr.varTypes
 }
 
@@ -626,28 +626,29 @@ func (rdr *StataReader) readVartypes16() error {
 		return err
 	}
 
-	rdr.varTypes = make([]int, rdr.Nvar)
+	rdr.varTypes = make([]ColumnTypeT, rdr.Nvar)
 	for k := range rdr.varTypes {
-		var err error
-		rdr.varTypes[k], err = rdr.readUint(2)
+		v, err := rdr.readUint(2)
 		if err != nil {
 			logerr(err)
 			return err
 		}
+		rdr.varTypes[k] = ColumnTypeT(v)
 	}
 
 	return nil
 }
 
 func (rdr *StataReader) readVartypes8() error {
-	var err error
-	rdr.varTypes = make([]int, rdr.Nvar)
+
+	rdr.varTypes = make([]ColumnTypeT, rdr.Nvar)
 	for k := range rdr.varTypes {
-		rdr.varTypes[k], err = rdr.readUint(1)
+		v, err := rdr.readUint(1)
 		if err != nil {
 			logerr(err)
 			return err
 		}
+		rdr.varTypes[k] = ColumnTypeT(v)
 	}
 
 	return nil
@@ -661,15 +662,15 @@ func (rdr *StataReader) translateVartypes() error {
 			// strf
 			continue
 		case rdr.varTypes[k] == 251:
-			rdr.varTypes[k] = int8Type
+			rdr.varTypes[k] = StataInt8Type
 		case rdr.varTypes[k] == 252:
-			rdr.varTypes[k] = int16Type
+			rdr.varTypes[k] = StataInt16Type
 		case rdr.varTypes[k] == 253:
-			rdr.varTypes[k] = int32Type
+			rdr.varTypes[k] = StataInt32Type
 		case rdr.varTypes[k] == 254:
-			rdr.varTypes[k] = float32Type
+			rdr.varTypes[k] = StataFloat32Type
 		case rdr.varTypes[k] == 255:
-			rdr.varTypes[k] = float64Type
+			rdr.varTypes[k] = StataFloat64Type
 		default:
 			return fmt.Errorf("unknown variable type")
 		}
@@ -1040,21 +1041,21 @@ func (rdr *StataReader) allocateCols(nval int) []interface{} {
 		switch {
 		case t <= 2045:
 			data[j] = make([]string, nval)
-		case t == strlType:
+		case t == StataStrlType:
 			if rdr.InsertStrls {
 				data[j] = make([]string, nval)
 			} else {
 				data[j] = make([]uint64, nval)
 			}
-		case t == float64Type:
+		case t == StataFloat64Type:
 			data[j] = make([]float64, nval)
-		case t == float32Type:
+		case t == StataFloat32Type:
 			data[j] = make([]float32, nval)
-		case t == int32Type:
+		case t == StataInt32Type:
 			data[j] = make([]int32, nval)
-		case t == int16Type:
+		case t == StataInt16Type:
 			data[j] = make([]int16, nval)
-		case t == int8Type:
+		case t == StataInt8Type:
 			data[j] = make([]int8, nval)
 		default:
 			panic(fmt.Sprintf("unknown variable type: %v", t))
@@ -1103,7 +1104,7 @@ func (rdr *StataReader) readRow(i int, buf, buf8 []byte, data []interface{}, mis
 				panic(err)
 			}
 			data[j].([]string)[i] = string(partition(buf[0:t]))
-		case t == strlType:
+		case t == StataStrlType:
 			if rdr.InsertStrls {
 				// The STRL pointer is 2 byte integer followed by 6 byte integer
 				// or 4 + 4 depending on the version
@@ -1120,7 +1121,7 @@ func (rdr *StataReader) readRow(i int, buf, buf8 []byte, data []interface{}, mis
 					panic(err)
 				}
 			}
-		case t == float64Type:
+		case t == StataFloat64Type:
 			var x float64
 			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
 				panic(err)
@@ -1130,7 +1131,7 @@ func (rdr *StataReader) readRow(i int, buf, buf8 []byte, data []interface{}, mis
 			if x > 8.988e307 || x < -8.988e307 {
 				missing[j][i] = true
 			}
-		case t == float32Type:
+		case t == StataFloat32Type:
 			var x float32
 			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
 				panic(err)
@@ -1139,7 +1140,7 @@ func (rdr *StataReader) readRow(i int, buf, buf8 []byte, data []interface{}, mis
 			if x > 1.701e38 || x < -1.701e38 {
 				missing[j][i] = true
 			}
-		case t == int32Type:
+		case t == StataInt32Type:
 			var x int32
 			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
 				panic(err)
@@ -1148,7 +1149,7 @@ func (rdr *StataReader) readRow(i int, buf, buf8 []byte, data []interface{}, mis
 			if x > 2147483620 || x < -2147483647 {
 				missing[j][i] = true
 			}
-		case t == int16Type:
+		case t == StataInt16Type:
 			var x int16
 			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
 				panic(err)
@@ -1157,7 +1158,7 @@ func (rdr *StataReader) readRow(i int, buf, buf8 []byte, data []interface{}, mis
 			if x > 32740 || x < -32767 {
 				missing[j][i] = true
 			}
-		case t == int8Type:
+		case t == StataInt8Type:
 			var x int8
 			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
 				panic(err)
