@@ -20,7 +20,7 @@ import (
 	"github.com/kshedden/datareader"
 )
 
-func doSplit(rdr datareader.Statfilereader, colDir string, mode string) {
+func doSplit(rdr datareader.StatfileReader, colDir string, mode string) {
 
 	ncol := len(rdr.ColumnNames())
 	columns := make([]io.Writer, ncol)
@@ -153,7 +153,7 @@ func main() {
 	}
 	defer r.Close()
 
-	var rdr datareader.Statfilereader
+	var rdr datareader.StatfileReader
 	if filetype == "sas" {
 		rdr, err = datareader.NewSAS7BDATReader(r)
 		if err != nil {

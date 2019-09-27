@@ -49,9 +49,10 @@ type CSVReader struct {
 	numRows   int
 }
 
-// NewReader returns a dataframe.CSVReader that reads CSV data from r
+// NewCSVReader returns a CSVReader that reads CSV data from the given io.reader,
 // with type inference and chunking.
 func NewCSVReader(r io.Reader) *CSVReader {
+
 	rdr := new(CSVReader)
 	rdr.HasHeader = true
 	rdr.reader = &r
@@ -82,7 +83,7 @@ func (rdr *CSVReader) getColumnNames() error {
 
 func (rdr *CSVReader) sniffTypes() {
 
-	n_floats, n_obs := rdr.countFloats()
+	nFloats, nObs := rdr.countFloats()
 
 	rdr.DataTypes = make([]string, len(rdr.ColumnNames))
 	for j, col := range rdr.ColumnNames {
@@ -101,7 +102,7 @@ func (rdr *CSVReader) sniffTypes() {
 		if t != "infer" {
 			rdr.DataTypes[j] = t
 		} else {
-			if (n_floats[j] == n_obs[j]) && (n_obs[j] > 0) {
+			if (nFloats[j] == nObs[j]) && (nObs[j] > 0) {
 				rdr.DataTypes[j] = "float64"
 			} else {
 				rdr.DataTypes[j] = "string"
@@ -110,7 +111,7 @@ func (rdr *CSVReader) sniffTypes() {
 	}
 }
 
-func (rdr *CSVReader) rectify_lines() {
+func (rdr *CSVReader) rectifyLines() {
 
 	mx := 0
 
@@ -147,7 +148,7 @@ func (rdr *CSVReader) init() error {
 		}
 	}
 
-	rdr.rectify_lines()
+	rdr.rectifyLines()
 
 	if len(rdr.lines) == 0 {
 		return fmt.Errorf("file appears to be empty")
@@ -169,7 +170,7 @@ func (rdr *CSVReader) init() error {
 	return nil
 }
 
-func (rdr *CSVReader) ensure_width(w int) {
+func (rdr *CSVReader) ensureWidth(w int) {
 
 	if len(rdr.ColumnNames) >= w {
 		return
@@ -240,7 +241,7 @@ func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 			} else if err != nil {
 				return nil, err
 			}
-			rdr.ensure_width(len(line))
+			rdr.ensureWidth(len(line))
 		}
 
 		for j := range rdr.ColumnNames {
@@ -272,7 +273,7 @@ func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 		rdr.numRows++
 	}
 
-	data_series := make([]*Series, len(rdr.dataArray))
+	dataSeries := make([]*Series, len(rdr.dataArray))
 	for j := 0; j < len(rdr.dataArray); j++ {
 		var name string
 		if len(rdr.ColumnNames) >= j {
@@ -281,12 +282,12 @@ func (rdr *CSVReader) Read(lines int) ([]*Series, error) {
 			name = fmt.Sprintf("Column %d", j+1)
 		}
 		var err error
-		data_series[j], err = NewSeries(name, rdr.dataArray[j], rdr.miss[j])
+		dataSeries[j], err = NewSeries(name, rdr.dataArray[j], rdr.miss[j])
 		if err != nil {
 			panic(fmt.Sprintf("%v", err))
 		}
 	}
-	return data_series, nil
+	return dataSeries, nil
 }
 
 // countFloats returns the number of elements of each column of array
@@ -301,8 +302,8 @@ func (rdr *CSVReader) countFloats() ([]int, []int) {
 		}
 	}
 
-	num_floats := make([]int, m)
-	num_obs := make([]int, m)
+	numFloats := make([]int, m)
+	numObs := make([]int, m)
 
 	for _, x := range rdr.lines {
 		for j, y := range x {
@@ -311,13 +312,13 @@ func (rdr *CSVReader) countFloats() ([]int, []int) {
 			if len(y) == 0 {
 				continue
 			}
-			num_obs[j] += 1
+			numObs[j] += 1
 			_, err := strconv.ParseFloat(y, 64)
 			if err == nil {
-				num_floats[j] += 1
+				numFloats[j] += 1
 			}
 		}
 	}
 
-	return num_floats, num_obs
+	return numFloats, numObs
 }

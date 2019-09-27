@@ -164,6 +164,7 @@ const (
 	dataSubheaderIndex
 )
 
+// ColumnTypeT is the type of a data column in a SAS or Stata file.
 type ColumnTypeT uint16
 
 const (
@@ -835,12 +836,14 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 }
 
 func (sas *SAS7BDAT) readNextPage() (error, bool) {
+
 	sas.currentPageDataSubheaderPointers = make([]*subheaderPointer, 0, 10)
 	sas.cachedPage = make([]byte, sas.properties.pageLength)
 	n, err := sas.file.Read(sas.cachedPage)
 	if n <= 0 {
 		return nil, true
 	}
+
 	if err != nil && err != io.EOF {
 		return err, false
 	}
@@ -849,18 +852,22 @@ func (sas *SAS7BDAT) readNextPage() (error, bool) {
 		return fmt.Errorf("failed to read complete page from file (read %d of %d bytes)",
 			len(sas.cachedPage), sas.properties.pageLength), false
 	}
+
 	if err := sas.readPageHeader(); err != nil {
 		return err, false
 	}
+
 	if sas.currentPageType == page_meta_type {
 		err = sas.processPageMetadata()
 		if err != nil {
 			return err, false
 		}
 	}
+
 	if checkPageType(sas.currentPageType) {
 		return sas.readNextPage()
 	}
+
 	return nil, false
 }
 
@@ -900,6 +907,7 @@ func (sas *SAS7BDAT) getProperties() error {
 	if err != nil {
 		return err
 	}
+
 	if string(sas.buf[0:align_2_length]) == string(align_1_checker_value) {
 		align1 = align_2_value
 	}
@@ -910,6 +918,7 @@ func (sas *SAS7BDAT) getProperties() error {
 	if err != nil {
 		return err
 	}
+
 	if sas.buf[0] == '\x01' {
 		sas.ByteOrder = binary.LittleEndian
 	} else {
