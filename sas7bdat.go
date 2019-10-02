@@ -43,6 +43,9 @@ type SAS7BDAT struct {
 	// coded values to the actual strings that they represent.
 	FactorizeStrings bool
 
+	// If true, turns off alignment correction when reading Mix-type pages.
+	NoAlignCorrection bool
+
 	// The creation date of the file
 	DateCreated time.Time
 
@@ -789,13 +792,15 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 			}
 			return nil, false
 		} else if sas.isPageMixType(sas.currentPageType) {
-			align_correction := bit_offset + subheader_pointers_offset +
-				sas.currentPageSubheadersCount*subheaderPointerLength
-			align_correction = align_correction % 8
-			offset := bit_offset + align_correction
-			offset += subheader_pointers_offset
-			offset += sas.currentPageSubheadersCount * subheaderPointerLength
-			offset += sas.currentRowOnPageIndex * sas.properties.rowLength
+			alignCorrection := (bit_offset + subheader_pointers_offset +
+				sas.currentPageSubheadersCount*subheaderPointerLength) % 8
+			if sas.NoAlignCorrection {
+				alignCorrection = 0
+			}
+			offset := bit_offset + subheader_pointers_offset +
+				sas.currentPageSubheadersCount * subheaderPointerLength +
+				sas.currentRowOnPageIndex * sas.properties.rowLength +
+				alignCorrection
 			err := sas.processByteArrayWithData(offset, sas.properties.rowLength)
 			if err != nil {
 				return err, false
