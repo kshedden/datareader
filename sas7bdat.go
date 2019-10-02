@@ -789,13 +789,12 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 			}
 			return nil, false
 		} else if sas.isPageMixType(sas.currentPageType) {
-			align_correction := bit_offset + subheader_pointers_offset +
+			offset := bit_offset + subheader_pointers_offset +
 				sas.currentPageSubheadersCount*subheaderPointerLength
-			align_correction = align_correction % 8
-			offset := bit_offset + align_correction
-			offset += subheader_pointers_offset
-			offset += sas.currentPageSubheadersCount * subheaderPointerLength
-			offset += sas.currentRowOnPageIndex * sas.properties.rowLength
+			align_correction := offset % 8
+			if sas.U64 {
+				offset += align_correction
+			}
 			err := sas.processByteArrayWithData(offset, sas.properties.rowLength)
 			if err != nil {
 				return err, false
