@@ -43,7 +43,11 @@ type SAS7BDAT struct {
 	// coded values to the actual strings that they represent.
 	FactorizeStrings bool
 
-	// If true, turns off alignment correction when reading Mix-type pages.
+	// If true, turns off alignment correction when reading mix-type pages.
+	// In general this should be set to false.  However some files
+	// are read incorrectly and need this flag set to true.  At present,
+	// we do not know how to automatically detect the correct setting, so
+	// we leave this as a configurable option.
 	NoAlignCorrection bool
 
 	// The creation date of the file
@@ -798,8 +802,8 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 				alignCorrection = 0
 			}
 			offset := bit_offset + subheader_pointers_offset +
-				sas.currentPageSubheadersCount * subheaderPointerLength +
-				sas.currentRowOnPageIndex * sas.properties.rowLength +
+				sas.currentPageSubheadersCount*subheaderPointerLength +
+				sas.currentRowOnPageIndex*sas.properties.rowLength +
 				alignCorrection
 			err := sas.processByteArrayWithData(offset, sas.properties.rowLength)
 			if err != nil {
