@@ -25,7 +25,9 @@ import (
 
 const (
 	// The Go code template for the convert***.go file to be emitted.
-	tcode = `package main
+	tcode = `// +build ignore
+
+package main
 
 import (
 	"fmt"
