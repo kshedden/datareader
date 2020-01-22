@@ -809,9 +809,7 @@ func (sas *SAS7BDAT) readline() (error, bool) {
 			if err != nil {
 				return err, false
 			}
-			if sas.currentRowOnPageIndex == min(
-				sas.rowCount,
-				sas.properties.mixPageRowCount) {
+			if sas.currentRowOnPageIndex == min(sas.rowCount, sas.properties.mixPageRowCount) {
 				err, done := sas.readNextPage()
 				if err != nil {
 					return err, false
@@ -1230,22 +1228,19 @@ func (sas *SAS7BDAT) processByteArrayWithData(offset, length int) error {
 			if sas.TrimStrings {
 				temp = bytes.TrimRight(temp, "\u0000\u0020")
 			}
-			var s string
 			if sas.TextDecoder != nil {
 				var err error
-				s, err = sas.TextDecoder.String(s)
+				temp, err = sas.TextDecoder.Bytes(temp)
 				if err != nil {
 					panic(err)
 				}
-			} else {
-				s = string(temp)
 			}
 
-			k, ok := sas.stringPoolR[s]
+			k, ok := sas.stringPoolR[string(temp)]
 			if !ok {
 				k = uint64(len(sas.stringPool))
-				sas.stringPool[k] = s
-				sas.stringPoolR[s] = k
+				sas.stringPool[k] = string(temp)
+				sas.stringPoolR[string(temp)] = k
 			}
 			sas.stringchunk[j][sas.currentRowInChunkIndex] = k
 		}
