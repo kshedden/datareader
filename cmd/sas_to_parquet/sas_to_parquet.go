@@ -134,14 +134,15 @@ func writeSchema(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, stru
 	}
 
 	for i := range cnames {
+		var cname = strings.Title(cnames[i])
 		switch ctypes[i] {
 		case datareader.SASNumericType:
-			s = fmt.Sprintf("    %s float64 `parquet:\"name=%s,type=DOUBLE\"`\n", cnames[i], cnames[i])
+			s = fmt.Sprintf("    %s float64 `parquet:\"name=%s,type=DOUBLE\"`\n", cname, cname)
 			if _, err := io.WriteString(&buf, s); err != nil {
 				panic(err)
 			}
 		case datareader.SASStringType:
-			s = fmt.Sprintf("    %s string `parquet:\"name=%s,type=BYTE_ARRAY\"`\n", cnames[i], cnames[i])
+			s = fmt.Sprintf("    %s string `parquet:\"name=%s,type=BYTE_ARRAY\"`\n", cname, cname)
 			if _, err := io.WriteString(&buf, s); err != nil {
 				panic(err)
 			}
@@ -211,7 +212,7 @@ func writeCode(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, struct
 	var vt []*vart
 	for i := range cnames {
 		x := &vart{
-			Name: cnames[i],
+			Name: strings.Title(cnames[i]),
 		}
 		switch ctypes[i] {
 		case datareader.SASNumericType:
@@ -284,10 +285,10 @@ func writeCode(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, struct
 
 func main() {
 
-	sasfile := flag.String("sasfile", "", "Path to the SAS file")
-	structname := flag.String("structname", "", "Name of the struct to create")
-	pkgname := flag.String("pkgname", "", "Name of the package to create")
-	outdir := flag.String("outdir", "", "Path where the output parquet file is written")
+	sasfile := flag.String("sasfile", "../../test_files/data/survey.sas7bdat", "Path to the SAS file")
+	structname := flag.String("structname", "Data", "Name of the struct to create")
+	pkgname := flag.String("pkgname", "test1", "Name of the package to create")
+	outdir := flag.String("outdir", "tmp", "Path where the output parquet file is written")
 	flag.Parse()
 
 	if *sasfile == "" {
