@@ -8,9 +8,9 @@ datareader : read SAS and Stata files in Go
 
 __datareader__ is a pure [Go](https://golang.org) (Golang) package
 that can read binary SAS format (SAS7BDAT) and Stata format (dta) data
-files into native Go data structures.  For non-Go users, there are two
-command line utilities that convert SAS and Stata files into text file
-formats.
+files into native Go data structures.  For non-Go users, there are
+command line utilities that convert SAS and Stata files into text/csv
+and parquet files.
 
 The Stata reader is based on the Stata documentation for the [dta file
 format](http://www.stata.com/help.cgi?dta) and supports dta versions
