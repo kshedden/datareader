@@ -134,14 +134,18 @@ func writeSchema(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, stru
 	}
 
 	for i := range cnames {
+
+		// The go version of the variable name must be exported
+		gname := strings.Title(cnames[i])
+
 		switch ctypes[i] {
 		case datareader.SASNumericType:
-			s = fmt.Sprintf("    %s float64 `parquet:\"name=%s,type=DOUBLE\"`\n", cnames[i], cnames[i])
+			s = fmt.Sprintf("    %s float64 `parquet:\"name=%s,type=DOUBLE\"`\n", gname, cnames[i])
 			if _, err := io.WriteString(&buf, s); err != nil {
 				panic(err)
 			}
 		case datareader.SASStringType:
-			s = fmt.Sprintf("    %s string `parquet:\"name=%s,type=BYTE_ARRAY\"`\n", cnames[i], cnames[i])
+			s = fmt.Sprintf("    %s string `parquet:\"name=%s,type=BYTE_ARRAY\"`\n", gname, cnames[i])
 			if _, err := io.WriteString(&buf, s); err != nil {
 				panic(err)
 			}
