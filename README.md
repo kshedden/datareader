@@ -100,10 +100,10 @@ dt, _ := rt.Read(-1)
 ## Command line utilities
 
 We provide two command-line utilities allowing conversion of SAS and
-Stata datasets to other formats without using
-Go.  Executables for several OS's and architectures are contained in
-the `bin` directory.  The script used to cross-compile these binaries
-is `build.sh`.  To build and install the commands for your local
+Stata datasets to other formats without using Go directly.
+Executables for several OS's and architectures are contained in the
+`bin` directory.  The script used to cross-compile these binaries is
+`build.sh`.  To build and install the commands for your local
 architecture only, run the Makefile (the executables will be copied
 into your GOBIN directory).
 
@@ -124,6 +124,34 @@ floats) or text format (binary is considerably faster).
 > columnize -in=file.sas7bdat -out=cols -mode=binary
 > columnize -in=file.dta -out=cols -mode=text
 ```
+
+## Parquet conversion
+
+We provide a simple and efficient way to convert a SAS7BDAT file to
+parquet format, using the
+[parquet-go](https://github.com/xitongsys/parquet-go) package.  To
+convert a SAS file called 'mydata.sas7bdat' to Parquet format, begin
+by running sas_to_parquet as follows:
+
+```
+sas_to_parquet -sasfile=mydata.sas7bdat -outdir=. -structname=MyStruct -pkgname=mypackage
+```
+
+If you want the Parquet file for use outside of Go, you can specify
+any values for `structname` and `pkgname`.  The sas_to_parquet command
+generates a Go program called 'convert_data.go' that you can use to
+perform the data conversion.
+
+The parquet file will be written to the specified destination
+directory, which in the above example is the current working
+directory.  The parquet file name will be based on the SAS file name,
+e.g. in the above example it will be 'mydata.parquet'.
+
+To facilitate reading the Parquet file into Go using the parquet-go
+package, a Go struct definition will be written to the directory
+specified by 'mypackage' above.  See the `sas_to_parquet_check.go`
+script to see how to read the file into Go using these struct
+definitions.
 
 ## Testing
 

@@ -1,4 +1,4 @@
-// +build ignore
+// +build ignore
 
 package main
 
@@ -10,7 +10,7 @@ import (
 func main() {
 
 	args := []string{"./sas_to_parquet", "-sasfile=../../test_files/data/test1.sas7bdat", "-structname=Data",
-		"-pkgname=test1", "-outdir=tmp"}
+		"-pkgname=test1", "-outdir=."}
 
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stderr = os.Stderr
