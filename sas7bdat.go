@@ -1205,6 +1205,14 @@ func (sas *SAS7BDAT) processByteArrayWithData(offset, length int) error {
 			return err
 		}
 	} else {
+		if offset+length > len(sas.cachedPage) {
+			oldPage := sas.cachedPage
+			err, ok := sas.readNextPage()
+			if err != nil || !ok {
+				return fmt.Errorf("error reading next page - %w", err)
+			}
+			sas.cachedPage = append(oldPage, sas.cachedPage...)
+		}
 		source = sas.cachedPage[offset : offset+length]
 	}
 
