@@ -205,7 +205,8 @@ func getImportPath() string {
 	return path.Join(tk...)
 }
 
-func writeCode(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, structname, sasfile, outdir string) {
+func writeCode(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, structname, sasfile,
+	outdir, scriptname, outname string) {
 
 	type vart struct {
 		Name string
@@ -231,12 +232,15 @@ func writeCode(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, struct
 
 	tmpl := template.Must(template.New("code").Parse(tcode))
 
-	outname := path.Base(sasfile)
-	e := path.Ext(outname)
-	if e == "" {
-		outname += ".parquet"
-	} else {
-		outname = strings.Replace(outname, e, ".parquet", -1)
+	if outname == "" {
+		// Default parquet file name
+		outname = path.Base(sasfile)
+		e := path.Ext(outname)
+		if e == "" {
+			outname += ".parquet"
+		} else {
+			outname = strings.Replace(outname, e, ".parquet", -1)
+		}
 	}
 	outfile := path.Join(outdir, outname)
 
@@ -269,13 +273,16 @@ func writeCode(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, struct
 		panic(err)
 	}
 
-	convert := fmt.Sprintf("convert_%s.go", strings.ToLower(structname))
-	fmt.Printf("Generating %s\n", convert)
-	out, err := os.Create(convert)
+	if scriptname == "" {
+		// A default script name
+		scriptname = fmt.Sprintf("convert_%s.go", strings.ToLower(structname))
+	}
+	fmt.Printf("Generating %s\n", scriptname)
+	out, err := os.Create(scriptname)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Type 'go run %s' to generate the parquet file.\n", convert)
+	fmt.Printf("Type 'go run %s' to generate the parquet file.\n", scriptname)
 
 	out.WriteString("// GENERATED CODE, DO NOT EDIT\n\n")
 	_, err = out.Write(p)
@@ -292,6 +299,8 @@ func main() {
 	structname := flag.String("structname", "", "Name of the struct to create")
 	pkgname := flag.String("pkgname", "", "Name of the package to create")
 	outdir := flag.String("outdir", "", "Path where the output parquet file is written")
+	scriptname := flag.String("scriptname", "", "Name of the generated script")
+	outname := flag.String("outname", "", "Name of the parquet file to generate")
 	flag.Parse()
 
 	if *sasfile == "" {
@@ -338,5 +347,5 @@ func main() {
 	ctypes := sas.ColumnTypes()
 
 	writeSchema(cnames, ctypes, *pkgname, *structname)
-	writeCode(cnames, ctypes, *pkgname, *structname, *sasfile, *outdir)
+	writeCode(cnames, ctypes, *pkgname, *structname, *sasfile, *outdir, *scriptname, *outname)
 }

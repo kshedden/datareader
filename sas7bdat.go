@@ -1209,7 +1209,7 @@ func (sas *SAS7BDAT) processByteArrayWithData(offset, length int) error {
 			oldPage := sas.cachedPage
 			err, ok := sas.readNextPage()
 			if err != nil || !ok {
-				return fmt.Errorf("error reading next page - %w", err)
+				return fmt.Errorf("error reading next page - %v", err)
 			}
 			sas.cachedPage = append(oldPage, sas.cachedPage...)
 		}
