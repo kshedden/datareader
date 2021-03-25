@@ -9,10 +9,12 @@ import (
 
 func main() {
 
-	args := []string{"./sas_to_parquet", "-sasfile=../../test_files/data/test1.sas7bdat", "-structname=Data",
-		"-pkgname=test1", "-outdir=."}
+	os.MkdirAll("tmp", 0777)
 
-	cmd := exec.Command(args[0], args[1:]...)
+	args := []string{"run", "sas_to_parquet.go", "-sasfile=../../test_files/data/test1.sas7bdat", "-structname=Data",
+		"-pkgname=test1", "-outdir=tmp"}
+
+	cmd := exec.Command("go", args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 

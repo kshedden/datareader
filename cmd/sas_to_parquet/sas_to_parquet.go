@@ -70,7 +70,8 @@ func main() {
 	}
 
 	pw.RowGroupSize = 128 * 1024 * 1024 //128M
-	pw.CompressionType = parquet.CompressionCodec_SNAPPY
+	pw.PageSize = 8 * 1024
+	pw.CompressionType = parquet.CompressionCodec_GZIP
 	chunksize := 1024 * 1024
 	ntot := 0
 	for chunk := 0; ; chunk++ {
