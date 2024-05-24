@@ -50,20 +50,20 @@ func doConversion(rdr datareader.StatfileReader) {
 		for j := 0; j < ncol; j++ {
 			missing[j] = chunk[j].Missing()
 			dcol := chunk[j].Data()
-			switch dcol.(type) {
+			switch v := dcol.(type) {
 			case []time.Time:
-				timecols[j] = dcol.([]time.Time)
+				timecols[j] = v
 			case []float64:
-				numbercols[j] = dcol.([]float64)
+				numbercols[j] = v
 			case []string:
-				stringcols[j] = dcol.([]string)
+				stringcols[j] = v
 			default:
 				panic(fmt.Sprintf("unknown type: %T", dcol))
 			}
 		}
 
-		for i := 0; i < nrow; i++ {
-			for j := 0; j < ncol; j++ {
+		for i := range nrow {
+			for j := range ncol {
 				if numbercols[j] != nil {
 					if missing[j] == nil || !missing[j][i] {
 						row[j] = fmt.Sprintf("%f", numbercols[j][i])

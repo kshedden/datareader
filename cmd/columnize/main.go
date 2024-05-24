@@ -69,12 +69,12 @@ func doSplit(rdr datareader.StatfileReader, colDir string, mode string) {
 
 		for j := 0; j < ncol; j++ {
 			ds := chunk[j].Data()
-			switch ds.(type) {
+			switch vec := ds.(type) {
 			case []float64:
 				switch mode {
 				case "binary":
 					var buf bytes.Buffer
-					for i, x := range ds.([]float64) {
+					for i, x := range vec {
 						if missing[j] == nil || !missing[j][i] {
 							if err := binary.Write(&buf, binary.LittleEndian, x); err != nil {
 								panic(err)
@@ -89,7 +89,6 @@ func doSplit(rdr datareader.StatfileReader, colDir string, mode string) {
 						panic(err)
 					}
 				case "text":
-					vec := ds.([]float64)
 					for i, x := range vec {
 						if missing[j] == nil || !missing[j][i] {
 							if _, err := columns[j].Write([]byte(fmt.Sprintf("%v\n", x))); err != nil {
@@ -105,7 +104,7 @@ func doSplit(rdr datareader.StatfileReader, colDir string, mode string) {
 					panic("Invalid mode")
 				}
 			case []string:
-				for _, x := range ds.([]string) {
+				for _, x := range vec {
 					if _, err := columns[j].Write([]byte(x)); err != nil {
 						panic(err)
 					}

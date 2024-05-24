@@ -21,6 +21,8 @@ import (
 	"text/template"
 
 	"github.com/dominodatalab/datareader"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 const (
@@ -137,7 +139,7 @@ func writeSchema(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, stru
 	for i := range cnames {
 
 		// The go version of the variable name must be exported
-		gname := strings.Title(cnames[i])
+		gname := cases.Title(language.AmericanEnglish).String(cnames[i])
 
 		switch ctypes[i] {
 		case datareader.SASNumericType:
@@ -181,10 +183,6 @@ func writeSchema(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, stru
 		panic(err)
 	}
 	defer out.Close()
-}
-
-func printUsage() {
-	panic("!!!\n")
 }
 
 func getImportPath() string {
@@ -285,7 +283,7 @@ func writeCode(cnames []string, ctypes []datareader.ColumnTypeT, pkgname, struct
 	}
 	fmt.Printf("Type 'go run %s' to generate the parquet file.\n", scriptname)
 
-	out.WriteString("// GENERATED CODE, DO NOT EDIT\n\n")
+	_, _ = out.WriteString("// GENERATED CODE, DO NOT EDIT\n\n")
 	_, err = out.Write(p)
 	if err != nil {
 		panic(err)
@@ -305,36 +303,36 @@ func main() {
 	flag.Parse()
 
 	if *sasfile == "" {
-		io.WriteString(os.Stderr, "'sasfile' is a required argument\n")
+		_, _ = io.WriteString(os.Stderr, "'sasfile' is a required argument\n")
 		os.Exit(1)
 	}
 
 	if *structname == "" {
-		io.WriteString(os.Stderr, "'structname' is a required argument\n")
+		_, _ = io.WriteString(os.Stderr, "'structname' is a required argument\n")
 		os.Exit(1)
 	}
 
 	if *pkgname == "" {
-		io.WriteString(os.Stderr, "'pkgname' is a required argument\n")
+		_, _ = io.WriteString(os.Stderr, "'pkgname' is a required argument\n")
 		os.Exit(1)
 	}
 
 	if *outdir == "" {
-		io.WriteString(os.Stderr, "'outdir' is a required argument\n")
+		_, _ = io.WriteString(os.Stderr, "'outdir' is a required argument\n")
 		os.Exit(1)
 	}
 
 	// Make sure the destination directory exists and is writeable.
 	if _, err := os.Stat(*outdir); os.IsNotExist(err) {
 		msg := fmt.Sprintf("Directory '%s' does not exist, exiting.\n", *outdir)
-		io.WriteString(os.Stderr, msg)
+		_, _ = io.WriteString(os.Stderr, msg)
 		os.Exit(1)
 	}
 
 	rdr, err := os.Open(*sasfile)
 	if err != nil {
 		msg := fmt.Sprintf("Cannot open file '%s'.\n", *sasfile)
-		io.WriteString(os.Stderr, msg)
+		_, _ = io.WriteString(os.Stderr, msg)
 		panic(err)
 	}
 	defer rdr.Close()

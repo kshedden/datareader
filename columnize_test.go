@@ -5,7 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -79,7 +79,7 @@ func columnizeBase(fname, mode string) [16]byte {
 		panic(err)
 	}
 
-	files, err := ioutil.ReadDir(outpath)
+	files, err := os.ReadDir(outpath)
 	if err != nil {
 		panic(err)
 	}
@@ -102,7 +102,7 @@ func columnizeBase(fname, mode string) [16]byte {
 		}
 		defer g.Close()
 
-		ba, err := ioutil.ReadAll(g)
+		ba, err := io.ReadAll(g)
 		if err != nil {
 			panic(err)
 		}
@@ -129,7 +129,7 @@ func TestColumnize1(t *testing.T) {
 
 	// Read the stored checksums
 	var checksum map[string][]byte
-	b, err := ioutil.ReadAll(cf)
+	b, err := io.ReadAll(cf)
 	if err != nil {
 		panic(err)
 	}

@@ -1168,8 +1168,7 @@ func (rdr *StataReader) readRow(i int, buf, buf8 []byte, data []interface{}, mis
 			}
 			data[j].([]int8)[i] = x
 		default:
-			msg := fmt.Sprintf("Unknown variable type")
-			panic(msg)
+			panic("Unknown variable type")
 		}
 	}
 }

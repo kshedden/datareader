@@ -32,25 +32,25 @@ type Series struct {
 // is returned.
 func ilen(data interface{}) (int, error) {
 
-	switch data.(type) {
+	switch v := data.(type) {
 	case []float64:
-		return len(data.([]float64)), nil
+		return len(v), nil
 	case []string:
-		return len(data.([]string)), nil
+		return len(v), nil
 	case []int64:
-		return len(data.([]int64)), nil
+		return len(v), nil
 	case []int32:
-		return len(data.([]int32)), nil
+		return len(v), nil
 	case []float32:
-		return len(data.([]float32)), nil
+		return len(v), nil
 	case []int16:
-		return len(data.([]int16)), nil
+		return len(v), nil
 	case []int8:
-		return len(data.([]int8)), nil
+		return len(v), nil
 	case []uint64:
-		return len(data.([]uint64)), nil
+		return len(v), nil
 	case []time.Time:
-		return len(data.([]time.Time)), nil
+		return len(v), nil
 	default:
 		return 0, fmt.Errorf("Unknown data type")
 	}
@@ -281,11 +281,10 @@ func (ser *Series) AllClose(other *Series, tol float64) (bool, int) {
 		}
 	}
 
-	switch ser.data.(type) {
+	switch u := ser.data.(type) {
 	default:
 		panic(fmt.Sprintf("Unknown type %T in Series.AllClose", ser.data))
 	case []float64:
-		u := ser.data.([]float64)
 		v, ok := other.data.([]float64)
 		if !ok {
 			return false, -2
@@ -300,7 +299,6 @@ func (ser *Series) AllClose(other *Series, tol float64) (bool, int) {
 			}
 		}
 	case []float32:
-		u := ser.data.([]float32)
 		v, ok := other.data.([]float32)
 		if !ok {
 			return false, -2
@@ -320,7 +318,7 @@ func (ser *Series) AllClose(other *Series, tol float64) (bool, int) {
 			if c == 0 {
 				return false, j
 			}
-			if (c == 1) && (ser.data.([]int64)[j] != other.data.([]int64)[j]) {
+			if (c == 1) && (u[j] != other.data.([]int64)[j]) {
 				return false, j
 			}
 		}
@@ -330,7 +328,7 @@ func (ser *Series) AllClose(other *Series, tol float64) (bool, int) {
 			if c == 0 {
 				return false, j
 			}
-			if (c == 1) && (ser.data.([]int32)[j] != other.data.([]int32)[j]) {
+			if (c == 1) && (u[j] != other.data.([]int32)[j]) {
 				return false, j
 			}
 		}
@@ -340,7 +338,7 @@ func (ser *Series) AllClose(other *Series, tol float64) (bool, int) {
 			if c == 0 {
 				return false, j
 			}
-			if (c == 1) && (ser.data.([]int16)[j] != other.data.([]int16)[j]) {
+			if (c == 1) && (u[j] != other.data.([]int16)[j]) {
 				return false, j
 			}
 		}
@@ -350,7 +348,7 @@ func (ser *Series) AllClose(other *Series, tol float64) (bool, int) {
 			if c == 0 {
 				return false, j
 			}
-			if (c == 1) && (ser.data.([]int8)[j] != other.data.([]int8)[j]) {
+			if (c == 1) && (u[j] != other.data.([]int8)[j]) {
 				return false, j
 			}
 		}
@@ -360,12 +358,11 @@ func (ser *Series) AllClose(other *Series, tol float64) (bool, int) {
 			if c == 0 {
 				return false, j
 			}
-			if (c == 1) && (ser.data.([]uint64)[j] != other.data.([]uint64)[j]) {
+			if (c == 1) && (u[j] != other.data.([]uint64)[j]) {
 				return false, j
 			}
 		}
 	case []string:
-		u := ser.data.([]string)
 		v, ok := other.data.([]string)
 		if !ok {
 			return false, -2
@@ -380,7 +377,6 @@ func (ser *Series) AllClose(other *Series, tol float64) (bool, int) {
 			}
 		}
 	case []time.Time:
-		u := ser.data.([]time.Time)
 		v, ok := other.data.([]time.Time)
 		if !ok {
 			return false, -2
