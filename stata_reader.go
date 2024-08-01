@@ -27,9 +27,9 @@ const (
 )
 
 var (
-	supportedDtaVersions = []int{114, 115, 117, 118}
-	rowCountLength       = map[int]int{114: 4, 115: 4, 117: 4, 118: 8}
-	nvarLength           = map[int]int{114: 2, 115: 2, 117: 2, 118: 2}
+	supportedDtaVersions = []int{108, 113, 114, 115, 117, 118}
+	rowCountLength       = map[int]int{108: 4, 113: 4, 114: 4, 115: 4, 117: 4, 118: 8}
+	nvarLength           = map[int]int{108: 2, 113: 2, 114: 2, 115: 2, 117: 2, 118: 2}
 	datasetLabelLength   = map[int]int{117: 1, 118: 2}
 	valueLabelLength     = map[int]int{117: 33, 118: 129}
 	voLength             = map[int]int{117: 8, 118: 12}
@@ -223,9 +223,17 @@ func (rdr *StataReader) init() error {
 	}
 
 	if rdr.FormatVersion < 117 {
-		if err := rdr.readExpansionFields(); err != nil {
-			logerr(err)
-			return err
+		if rdr.FormatVersion <= 108 {
+			// dta 108 uses a 16 bit int for length.
+			if err := rdr.readExpansionFieldsInt16(); err != nil {
+				logerr(err)
+				return err
+			}
+		} else {
+			if err := rdr.readExpansionFields(); err != nil {
+				logerr(err)
+				return err
+			}
 		}
 	}
 
@@ -248,6 +256,34 @@ func (rdr *StataReader) init() error {
 func (rdr *StataReader) readExpansionFields() error {
 	var b byte
 	var i int32
+
+	for {
+		err := binary.Read(rdr.reader, rdr.ByteOrder, &b)
+		if err != nil {
+			logerr(err)
+			return err
+		}
+		err = binary.Read(rdr.reader, rdr.ByteOrder, &i)
+		if err != nil {
+			logerr(err)
+			return err
+		}
+
+		if b == 0 && i == 0 {
+			break
+		}
+		if _, err := rdr.reader.Seek(int64(i), 1); err != nil {
+			logerr(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (rdr *StataReader) readExpansionFieldsInt16() error {
+	var b byte
+	var i int16
 
 	for {
 		err := binary.Read(rdr.reader, rdr.ByteOrder, &b)
@@ -612,6 +648,10 @@ func (rdr *StataReader) readVartypes() error {
 		err = rdr.readVartypes8()
 	case rdr.FormatVersion == 114:
 		err = rdr.readVartypes8()
+	case rdr.FormatVersion == 113:
+		err = rdr.readVartypes8()
+	case rdr.FormatVersion == 108:
+		err = rdr.readVartypes8()
 	default:
 		err = fmt.Errorf("unknown format version %v", rdr.FormatVersion)
 	}
@@ -658,19 +698,21 @@ func (rdr *StataReader) translateVartypes() error {
 
 	for k := 0; k < int(rdr.Nvar); k++ {
 		switch {
+		case rdr.varTypes[k] == 251 || rdr.varTypes[k] == 98:
+			rdr.varTypes[k] = StataInt8Type
+		case rdr.varTypes[k] == 252 || rdr.varTypes[k] == 105:
+			rdr.varTypes[k] = StataInt16Type
+		case rdr.varTypes[k] == 253 || rdr.varTypes[k] == 108:
+			rdr.varTypes[k] = StataInt32Type
+		case rdr.varTypes[k] == 254 || rdr.varTypes[k] == 102:
+			rdr.varTypes[k] = StataFloat32Type
+		case rdr.varTypes[k] == 255 || rdr.varTypes[k] == 100:
+			rdr.varTypes[k] = StataFloat64Type
 		case rdr.varTypes[k] <= 244:
 			// strf
-			continue
-		case rdr.varTypes[k] == 251:
-			rdr.varTypes[k] = StataInt8Type
-		case rdr.varTypes[k] == 252:
-			rdr.varTypes[k] = StataInt16Type
-		case rdr.varTypes[k] == 253:
-			rdr.varTypes[k] = StataInt32Type
-		case rdr.varTypes[k] == 254:
-			rdr.varTypes[k] = StataFloat32Type
-		case rdr.varTypes[k] == 255:
-			rdr.varTypes[k] = StataFloat64Type
+			if rdr.FormatVersion <= 108 {
+				rdr.varTypes[k] -= 127
+			}
 		default:
 			return fmt.Errorf("unknown variable type")
 		}
@@ -692,6 +734,10 @@ func (rdr *StataReader) readFormats() error {
 		err = rdr.doReadFormats(49, false)
 	case rdr.FormatVersion == 114:
 		err = rdr.doReadFormats(49, false)
+	case rdr.FormatVersion == 113:
+		err = rdr.doReadFormats(12, false)
+	case rdr.FormatVersion == 108:
+		err = rdr.doReadFormats(12, false)
 	default:
 		err = fmt.Errorf("unknown format version %v", rdr.FormatVersion)
 	}
@@ -758,6 +804,10 @@ func (rdr *StataReader) readVarnames() error {
 		err = rdr.doReadVarnames(33, false)
 	case 114:
 		err = rdr.doReadVarnames(33, false)
+	case 113:
+		err = rdr.doReadVarnames(33, false)
+	case 108:
+		err = rdr.doReadVarnames(9, false)
 	default:
 		err = fmt.Errorf("unknown format version %d", rdr.FormatVersion)
 	}
@@ -806,6 +856,12 @@ func (rdr *StataReader) readValueLabelNames() error {
 		err = rdr.doReadValueLabelNames(33, false)
 	case 115:
 		err = rdr.doReadValueLabelNames(33, false)
+	case 114:
+		err = rdr.doReadValueLabelNames(33, false)
+	case 113:
+		err = rdr.doReadValueLabelNames(33, false)
+	case 108:
+		err = rdr.doReadValueLabelNames(9, false)
 	default:
 		return fmt.Errorf("unknown format version %v", rdr.FormatVersion)
 	}
@@ -848,6 +904,10 @@ func (rdr *StataReader) readVariableLabels() error {
 	case 115:
 		err = rdr.doReadVariableLabels(81, false)
 	case 114:
+		err = rdr.doReadVariableLabels(81, false)
+	case 113:
+		err = rdr.doReadVariableLabels(81, false)
+	case 108:
 		err = rdr.doReadVariableLabels(81, false)
 	default:
 		err = fmt.Errorf("Unknown format version %d", rdr.FormatVersion)
@@ -1161,6 +1221,7 @@ func (rdr *StataReader) readRow(i int, buf, buf8 []byte, data []interface{}, mis
 		case t == StataInt8Type:
 			var x int8
 			if err := binary.Read(rdr.reader, rdr.ByteOrder, &x); err != nil {
+				fmt.Println(t)
 				panic(err)
 			}
 			if x < -127 || x > 100 {
@@ -1208,7 +1269,6 @@ func (rdr *StataReader) Read(rows int) ([]*Series, error) {
 		if rdr.rowsRead > int(rdr.rowCount) {
 			break
 		}
-
 		rdr.readRow(i, buf, buf8, data, missing)
 	}
 
